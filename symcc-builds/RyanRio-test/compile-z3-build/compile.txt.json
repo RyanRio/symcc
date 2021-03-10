@@ -1,0 +1,155 @@
+{
+    "calls": {
+        "_sym_build_signed_less_than": 1,
+        "_sym_build_signed_rem": 2,
+        "_sym_build_mul": 4,
+        "_sym_build_signed_greater_than": 1,
+        "_sym_push_path_constraint": 10,
+        "_sym_build_not_equal": 6,
+        "_sym_build_add": 2
+    },
+    "_sym_build_signed_less_than": [
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %38 = call i8* @_sym_build_signed_less_than(i8* %32, i8* %37)"
+        }
+    ],
+    "_sym_build_signed_rem": [
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %71 = call i8* @_sym_build_signed_rem(i8* %65, i8* %70)"
+        },
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %71 = call i8* @_sym_build_signed_rem(i8* %65, i8* %70)"
+        }
+    ],
+    "_sym_build_mul": [
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %17 = call i8* @_sym_build_mul(i8* %16, i8* %11)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %17 = call i8* @_sym_build_mul(i8* %16, i8* %11)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %17 = call i8* @_sym_build_mul(i8* %16, i8* %11)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %17 = call i8* @_sym_build_mul(i8* %16, i8* %11)"
+        }
+    ],
+    "_sym_build_signed_greater_than": [
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %38 = call i8* @_sym_build_signed_greater_than(i8* %32, i8* %37)"
+        }
+    ],
+    "_sym_push_path_constraint": [
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %40, i1 %41, i64 25507904)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %40, i1 %41, i64 25507904)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %80, i1 %81, i64 25783808)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %80, i1 %81, i64 25783808)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %40, i1 %41, i64 25967744)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %40, i1 %41, i64 25967744)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %80, i1 %81, i64 25968704)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %80, i1 %81, i64 25968704)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %18, i1 %19, i64 25974176)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  call void @_sym_push_path_constraint(i8* %18, i1 %19, i64 25974176)"
+        }
+    ],
+    "_sym_build_not_equal": [
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %78 = call i8* @_sym_build_not_equal(i8* %73, i8* %77)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %78 = call i8* @_sym_build_not_equal(i8* %73, i8* %77)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %78 = call i8* @_sym_build_not_equal(i8* %73, i8* %77)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %78 = call i8* @_sym_build_not_equal(i8* %73, i8* %77)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %16 = call i8* @_sym_build_not_equal(i8* %12, i8* %15)"
+        },
+        {
+            "runtime_check": 0,
+            "concrete": 1,
+            "function": "  %16 = call i8* @_sym_build_not_equal(i8* %12, i8* %15)"
+        }
+    ],
+    "_sym_build_add": [
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %111 = call i8* @_sym_build_add(i8* %105, i8* %110)"
+        },
+        {
+            "runtime_check": 1,
+            "concrete": 1,
+            "function": "  %111 = call i8* @_sym_build_add(i8* %105, i8* %110)"
+        }
+    ]
+}
