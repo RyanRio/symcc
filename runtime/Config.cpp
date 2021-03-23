@@ -57,6 +57,10 @@ void loadConfig() {
   if (logFile != nullptr)
     g_config.logFile = logFile;
 
+  auto *dataLogFile = getenv("RYANRIO_DATA_LOG_FILE");
+  if (dataLogFile != nullptr)
+    g_config.dataLogFile = dataLogFile;
+
   auto *pruning = getenv("SYMCC_ENABLE_LINEARIZATION");
   if (pruning != nullptr)
     g_config.pruning = checkFlagString(pruning);

@@ -40,3 +40,13 @@ TAGS
 # Clang tooling
 compile_commands.json
 .clangd
+
+# corpora
+symcc-builds/qsym-build
+symcc-builds/z3-build
+symcc-builds/RyanRio-test/compile-qsym-build
+symcc-builds/RyanRio-test/compile-z3-build
+symcc-builds/RyanRio-test/fuzz-queue
+symcc-builds/RyanRio-test/output-qsym-build
+symcc-builds/RyanRio-test/output-z3-build
+symcc-builds/RyanRio-test/corpora

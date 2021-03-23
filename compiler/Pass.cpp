@@ -22,13 +22,15 @@
 
 #include "Runtime.h"
 #include "Symbolizer.h"
+#include "Analyzer.h"
 
 using namespace llvm;
 
 #ifndef NDEBUG
-#define DEBUG(X)                                                               \
-  do {                                                                         \
-    X;                                                                         \
+#define DEBUG(X) \
+  do             \
+  {              \
+    X;           \
   } while (false)
 #else
 #define DEBUG(X) ((void)0)
@@ -36,12 +38,16 @@ using namespace llvm;
 
 char SymbolizePass::ID = 0;
 
-bool SymbolizePass::doInitialization(Module &M) {
+bool SymbolizePass::doInitialization(Module &M)
+{
+  // llvm::errs() << "Beginning pass on module: " << M << "\n";
+
   DEBUG(errs() << "Symbolizer module init\n");
 
   // Redirect calls to external functions to the corresponding wrappers and
   // rename internal functions.
-  for (auto &function : M.functions()) {
+  for (auto &function : M.functions())
+  {
     auto name = function.getName();
     if (isInterceptedFunction(function))
       function.setName(name + "_symbolized");
@@ -56,18 +62,27 @@ bool SymbolizePass::doInitialization(Module &M) {
   return true;
 }
 
-bool SymbolizePass::runOnFunction(Function &F) {
+bool SymbolizePass::runOnFunction(Function &F)
+{
   auto functionName = F.getName();
+
   if (functionName == kSymCtorName)
     return false;
 
   DEBUG(errs() << "Symbolizing function ");
   DEBUG(errs().write_escaped(functionName) << '\n');
 
+  Analyzer::instance().IncrementFunction(functionName);
+
   SmallVector<Instruction *, 0> allInstructions;
-  allInstructions.reserve(F.getInstructionCount());
+
+  int instructionCount = F.getInstructionCount();
+
+  allInstructions.reserve(instructionCount);
   for (auto &I : instructions(F))
+  {
     allInstructions.push_back(&I);
+  }
 
   Symbolizer symbolizer(*F.getParent());
   symbolizer.symbolizeFunctionArguments(F);
@@ -76,7 +91,11 @@ bool SymbolizePass::runOnFunction(Function &F) {
     symbolizer.insertBasicBlockNotification(basicBlock);
 
   for (auto *instPtr : allInstructions)
+  {
+    Analyzer::instance().AddInstructionPreSymbolize(*instPtr);
     symbolizer.visit(instPtr);
+    Analyzer::instance().AddInstructionPostSymbolize(*instPtr);
+  }
 
   symbolizer.finalizePHINodes();
   symbolizer.shortCircuitExpressionUses();
@@ -87,3 +106,10 @@ bool SymbolizePass::runOnFunction(Function &F) {
 
   return true;
 }
+
+bool SymbolizePass::doFinalization(Module& M)
+{
+  Analyzer::instance().Finalize(M);
+  return false;
+}
+

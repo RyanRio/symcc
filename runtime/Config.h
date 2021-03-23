@@ -30,6 +30,9 @@ struct Config {
   /// The file to log constraint solving information to.
   std::string logFile = "";
 
+  /// the file to log constraint data collection
+  std::string dataLogFile="";
+
   /// Do we prune expressions on hot paths?
   bool pruning = false;
 

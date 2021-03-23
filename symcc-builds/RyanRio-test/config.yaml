@@ -1,0 +1,6 @@
+SYMCC_OUTPUT_DIR: output
+RYANRIO_COMPILE_OUT: compile
+
+SYMCC_LOG_FILE: symcc_log
+RYANRIO_DATA_LOG_FILE: data_log
+RYANRIO_COMPILE_LOG_FILE: compile_log

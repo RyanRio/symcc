@@ -90,7 +90,8 @@ add_library(Symbolize MODULE
   compiler/Symbolizer.cpp
   compiler/Pass.cpp
   compiler/Runtime.cpp
-  compiler/Main.cpp)
+  compiler/Main.cpp
+  compiler/Analyzer.cpp)
 if (NOT LLVM_ENABLE_RTTI)
   set_target_properties(Symbolize PROPERTIES COMPILE_FLAGS "-fno-rtti")
 endif()

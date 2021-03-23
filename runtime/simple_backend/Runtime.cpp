@@ -36,8 +36,8 @@
 #define P(ptr) reinterpret_cast<void *>(ptr)
 #endif
 
-#define FSORT(is_double)                                                       \
-  ((is_double) ? Z3_mk_fpa_sort_double(g_context)                              \
+#define FSORT(is_double)                          \
+  ((is_double) ? Z3_mk_fpa_sort_double(g_context) \
                : Z3_mk_fpa_sort_single(g_context))
 
 /* TODO Eventually we'll want to inline as much of this as possible. I'm keeping
@@ -45,67 +45,76 @@
    but I expect that a lot of the functions will stay so simple that we can
    generate the corresponding bitcode directly in the compiler pass. */
 
-namespace {
+namespace
+{
 
-/// Indicate whether the runtime has been initialized.
-std::atomic_flag g_initialized = ATOMIC_FLAG_INIT;
+  /// Indicate whether the runtime has been initialized.
+  std::atomic_flag g_initialized = ATOMIC_FLAG_INIT;
 
-/// The global Z3 context.
-Z3_context g_context;
+  /// The global Z3 context.
+  Z3_context g_context;
 
-/// The global floating-point rounding mode.
-Z3_ast g_rounding_mode;
+  /// The global floating-point rounding mode.
+  Z3_ast g_rounding_mode;
 
-/// The global Z3 solver.
-Z3_solver g_solver; // TODO make thread-local
+  /// The global Z3 solver.
+  Z3_solver g_solver; // TODO make thread-local
 
-// Some global constants for efficiency.
-Z3_ast g_null_pointer, g_true, g_false;
+  // Some global constants for efficiency.
+  Z3_ast g_null_pointer, g_true, g_false;
 
-FILE *g_log = stderr;
+  FILE *g_log = stderr;
+  FILE *g_data_log = NULL; // add data logging
 
 #ifndef NDEBUG
-[[maybe_unused]] void dump_known_regions() {
-  std::cerr << "Known regions:" << std::endl;
-  for (const auto &[page, shadow] : g_shadow_pages) {
-    std::cerr << "  " << P(page) << " shadowed by " << P(shadow) << std::endl;
+  [[maybe_unused]] void dump_known_regions()
+  {
+    std::cerr << "Known regions:" << std::endl;
+    for (const auto &[page, shadow] : g_shadow_pages)
+    {
+      std::cerr << "  " << P(page) << " shadowed by " << P(shadow) << std::endl;
+    }
   }
-}
 
-void handle_z3_error(Z3_context c [[maybe_unused]], Z3_error_code e) {
-  assert(c == g_context && "Z3 error in unknown context");
-  std::cerr << Z3_get_error_msg(g_context, e) << std::endl;
-  assert(!"Z3 error");
-}
+  void handle_z3_error(Z3_context c [[maybe_unused]], Z3_error_code e)
+  {
+    assert(c == g_context && "Z3 error in unknown context");
+    std::cerr << Z3_get_error_msg(g_context, e) << std::endl;
+    assert(!"Z3 error");
+  }
 #endif
 
-Z3_ast build_variable(const char *name, uint8_t bits) {
-  Z3_symbol sym = Z3_mk_string_symbol(g_context, name);
-  auto *sort = Z3_mk_bv_sort(g_context, bits);
-  Z3_inc_ref(g_context, (Z3_ast)sort);
-  Z3_ast result = Z3_mk_const(g_context, sym, sort);
-  Z3_inc_ref(g_context, result);
-  Z3_dec_ref(g_context, (Z3_ast)sort);
-  return result;
-}
-
-/// The set of all expressions we have ever passed to client code.
-std::set<SymExpr> allocatedExpressions;
-
-SymExpr registerExpression(Z3_ast expr) {
-  if (allocatedExpressions.count(expr) == 0) {
-    // We don't know this expression yet. Record it and increase the reference
-    // counter.
-    allocatedExpressions.insert(expr);
-    Z3_inc_ref(g_context, expr);
+  Z3_ast build_variable(const char *name, uint8_t bits)
+  {
+    Z3_symbol sym = Z3_mk_string_symbol(g_context, name);
+    auto *sort = Z3_mk_bv_sort(g_context, bits);
+    Z3_inc_ref(g_context, (Z3_ast)sort);
+    Z3_ast result = Z3_mk_const(g_context, sym, sort);
+    Z3_inc_ref(g_context, result);
+    Z3_dec_ref(g_context, (Z3_ast)sort);
+    return result;
   }
 
-  return expr;
-}
+  /// The set of all expressions we have ever passed to client code.
+  std::set<SymExpr> allocatedExpressions;
+
+  SymExpr registerExpression(Z3_ast expr)
+  {
+    if (allocatedExpressions.count(expr) == 0)
+    {
+      // We don't know this expression yet. Record it and increase the reference
+      // counter.
+      allocatedExpressions.insert(expr);
+      Z3_inc_ref(g_context, expr);
+    }
+
+    return expr;
+  }
 
 } // namespace
 
-void _sym_initialize(void) {
+void _sym_initialize(void)
+{
   if (g_initialized.test_and_set())
     return;
 
@@ -148,14 +157,28 @@ void _sym_initialize(void) {
   g_false = Z3_mk_false(g_context);
   Z3_inc_ref(g_context, g_false);
 
-  if (g_config.logFile.empty()) {
+  if (g_config.logFile.empty())
+  {
     g_log = stderr;
-  } else {
+  }
+  else
+  {
     g_log = fopen(g_config.logFile.c_str(), "w");
   }
+
+  if (g_config.dataLogFile.empty())
+  {
+    g_data_log = NULL;
+  }
+  else
+  {
+    g_data_log = fopen(g_config.dataLogFile.c_str(), "w");
+  }
+  
 }
 
-Z3_ast _sym_build_integer(uint64_t value, uint8_t bits) {
+Z3_ast _sym_build_integer(uint64_t value, uint8_t bits)
+{
   auto *sort = Z3_mk_bv_sort(g_context, bits);
   Z3_inc_ref(g_context, (Z3_ast)sort);
   auto *result =
@@ -164,12 +187,14 @@ Z3_ast _sym_build_integer(uint64_t value, uint8_t bits) {
   return result;
 }
 
-Z3_ast _sym_build_integer128(uint64_t high, uint64_t low) {
+Z3_ast _sym_build_integer128(uint64_t high, uint64_t low)
+{
   return registerExpression(Z3_mk_concat(
       g_context, _sym_build_integer(high, 64), _sym_build_integer(low, 64)));
 }
 
-Z3_ast _sym_build_float(double value, int is_double) {
+Z3_ast _sym_build_float(double value, int is_double)
+{
   auto *sort = FSORT(is_double);
   Z3_inc_ref(g_context, (Z3_ast)sort);
   auto *result =
@@ -178,7 +203,8 @@ Z3_ast _sym_build_float(double value, int is_double) {
   return result;
 }
 
-Z3_ast _sym_get_input_byte(size_t offset) {
+Z3_ast _sym_get_input_byte(size_t offset)
+{
   static std::vector<SymExpr> stdinBytes;
 
   if (offset < stdinBytes.size())
@@ -198,13 +224,15 @@ Z3_ast _sym_build_true(void) { return g_true; }
 Z3_ast _sym_build_false(void) { return g_false; }
 Z3_ast _sym_build_bool(bool value) { return value ? g_true : g_false; }
 
-Z3_ast _sym_build_neg(Z3_ast expr) {
+Z3_ast _sym_build_neg(Z3_ast expr)
+{
   return registerExpression(Z3_mk_bvneg(g_context, expr));
 }
 
-#define DEF_BINARY_EXPR_BUILDER(name, z3_name)                                 \
-  SymExpr _sym_build_##name(SymExpr a, SymExpr b) {                            \
-    return registerExpression(Z3_mk_##z3_name(g_context, a, b));               \
+#define DEF_BINARY_EXPR_BUILDER(name, z3_name)                   \
+  SymExpr _sym_build_##name(SymExpr a, SymExpr b)                \
+  {                                                              \
+    return registerExpression(Z3_mk_##z3_name(g_context, a, b)); \
   }
 
 DEF_BINARY_EXPR_BUILDER(add, bvadd)
@@ -241,66 +269,80 @@ DEF_BINARY_EXPR_BUILDER(float_ordered_equal, fpa_eq)
 
 #undef DEF_BINARY_EXPR_BUILDER
 
-Z3_ast _sym_build_fp_add(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_fp_add(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_fpa_add(g_context, g_rounding_mode, a, b));
 }
 
-Z3_ast _sym_build_fp_sub(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_fp_sub(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_fpa_sub(g_context, g_rounding_mode, a, b));
 }
 
-Z3_ast _sym_build_fp_mul(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_fp_mul(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_fpa_mul(g_context, g_rounding_mode, a, b));
 }
 
-Z3_ast _sym_build_fp_div(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_fp_div(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_fpa_div(g_context, g_rounding_mode, a, b));
 }
 
-Z3_ast _sym_build_fp_rem(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_fp_rem(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_fpa_rem(g_context, a, b));
 }
 
-Z3_ast _sym_build_fp_abs(Z3_ast a) {
+Z3_ast _sym_build_fp_abs(Z3_ast a)
+{
   return registerExpression(Z3_mk_fpa_abs(g_context, a));
 }
 
-Z3_ast _sym_build_not(Z3_ast expr) {
+Z3_ast _sym_build_not(Z3_ast expr)
+{
   return registerExpression(Z3_mk_bvnot(g_context, expr));
 }
 
-Z3_ast _sym_build_not_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_not_equal(Z3_ast a, Z3_ast b)
+{
   return registerExpression(Z3_mk_not(g_context, Z3_mk_eq(g_context, a, b)));
 }
 
-Z3_ast _sym_build_bool_and(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_bool_and(Z3_ast a, Z3_ast b)
+{
   Z3_ast operands[] = {a, b};
   return registerExpression(Z3_mk_and(g_context, 2, operands));
 }
 
-Z3_ast _sym_build_bool_or(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_bool_or(Z3_ast a, Z3_ast b)
+{
   Z3_ast operands[] = {a, b};
   return registerExpression(Z3_mk_or(g_context, 2, operands));
 }
 
-Z3_ast _sym_build_float_ordered_not_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_ordered_not_equal(Z3_ast a, Z3_ast b)
+{
   return registerExpression(
       Z3_mk_not(g_context, _sym_build_float_ordered_equal(a, b)));
 }
 
-Z3_ast _sym_build_float_ordered(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_ordered(Z3_ast a, Z3_ast b)
+{
   return registerExpression(
       Z3_mk_not(g_context, _sym_build_float_unordered(a, b)));
 }
 
-Z3_ast _sym_build_float_unordered(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[2];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_greater_than(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_greater_than(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -308,7 +350,8 @@ Z3_ast _sym_build_float_unordered_greater_than(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_greater_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_greater_equal(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -316,7 +359,8 @@ Z3_ast _sym_build_float_unordered_greater_equal(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_less_than(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_less_than(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -324,7 +368,8 @@ Z3_ast _sym_build_float_unordered_less_than(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_less_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_less_equal(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -332,7 +377,8 @@ Z3_ast _sym_build_float_unordered_less_equal(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_equal(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -340,7 +386,8 @@ Z3_ast _sym_build_float_unordered_equal(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_float_unordered_not_equal(Z3_ast a, Z3_ast b) {
+Z3_ast _sym_build_float_unordered_not_equal(Z3_ast a, Z3_ast b)
+{
   Z3_ast checks[3];
   checks[0] = Z3_mk_fpa_is_nan(g_context, a);
   checks[1] = Z3_mk_fpa_is_nan(g_context, b);
@@ -348,19 +395,23 @@ Z3_ast _sym_build_float_unordered_not_equal(Z3_ast a, Z3_ast b) {
   return registerExpression(Z3_mk_or(g_context, 2, checks));
 }
 
-Z3_ast _sym_build_sext(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_sext(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_sign_ext(g_context, bits, expr));
 }
 
-Z3_ast _sym_build_zext(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_zext(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_zero_ext(g_context, bits, expr));
 }
 
-Z3_ast _sym_build_trunc(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_trunc(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_extract(g_context, bits - 1, 0, expr));
 }
 
-Z3_ast _sym_build_int_to_float(Z3_ast value, int is_double, int is_signed) {
+Z3_ast _sym_build_int_to_float(Z3_ast value, int is_double, int is_signed)
+{
   auto *sort = FSORT(is_double);
   Z3_inc_ref(g_context, (Z3_ast)sort);
   auto *result = registerExpression(
@@ -371,7 +422,8 @@ Z3_ast _sym_build_int_to_float(Z3_ast value, int is_double, int is_signed) {
   return result;
 }
 
-Z3_ast _sym_build_float_to_float(Z3_ast expr, int to_double) {
+Z3_ast _sym_build_float_to_float(Z3_ast expr, int to_double)
+{
   auto *sort = FSORT(to_double);
   Z3_inc_ref(g_context, (Z3_ast)sort);
   auto *result = registerExpression(
@@ -380,7 +432,8 @@ Z3_ast _sym_build_float_to_float(Z3_ast expr, int to_double) {
   return result;
 }
 
-Z3_ast _sym_build_bits_to_float(Z3_ast expr, int to_double) {
+Z3_ast _sym_build_bits_to_float(Z3_ast expr, int to_double)
+{
   if (expr == nullptr)
     return nullptr;
 
@@ -391,47 +444,66 @@ Z3_ast _sym_build_bits_to_float(Z3_ast expr, int to_double) {
   return result;
 }
 
-Z3_ast _sym_build_float_to_bits(Z3_ast expr) {
+Z3_ast _sym_build_float_to_bits(Z3_ast expr)
+{
   if (expr == nullptr)
     return nullptr;
   return registerExpression(Z3_mk_fpa_to_ieee_bv(g_context, expr));
 }
 
-Z3_ast _sym_build_float_to_signed_integer(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_float_to_signed_integer(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_fpa_to_sbv(
       g_context, Z3_mk_fpa_round_toward_zero(g_context), expr, bits));
 }
 
-Z3_ast _sym_build_float_to_unsigned_integer(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_float_to_unsigned_integer(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_fpa_to_ubv(
       g_context, Z3_mk_fpa_round_toward_zero(g_context), expr, bits));
 }
 
-Z3_ast _sym_build_bool_to_bits(Z3_ast expr, uint8_t bits) {
+Z3_ast _sym_build_bool_to_bits(Z3_ast expr, uint8_t bits)
+{
   return registerExpression(Z3_mk_ite(g_context, expr,
                                       _sym_build_integer(1, bits),
                                       _sym_build_integer(0, bits)));
 }
 
+// macro so we don't clog stderr which symcc uses
+#define dataprintf(format, ...) if(g_data_log!=NULL) fprintf (g_data_log, format __VA_OPT__(,) __VA_ARGS__)
+
 void _sym_push_path_constraint(Z3_ast constraint, int taken,
-                               uintptr_t site_id [[maybe_unused]]) {
+                               uintptr_t site_id [[maybe_unused]])
+{
   if (constraint == nullptr)
     return;
 
+  dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+
+  dataprintf("has id: %ld\n", site_id);
+
   constraint = Z3_simplify(g_context, constraint);
+
+  dataprintf(" -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+
   Z3_inc_ref(g_context, constraint);
 
   /* Check the easy cases first: if simplification reduced the constraint to
      "true" or "false", there is no point in trying to solve the negation or *
      pushing the constraint to the solver... */
 
-  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_true(g_context))) {
+  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_true(g_context)))
+  {
+    dataprintf(" -- constraint reduced to true");
     assert(taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
   }
 
-  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_false(g_context))) {
+  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_false(g_context)))
+  {
+    dataprintf(" -- constraint reduced to false");
     assert(!taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
@@ -440,24 +512,35 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   /* Generate a solution for the alternative */
   Z3_ast not_constraint =
       Z3_simplify(g_context, Z3_mk_not(g_context, constraint));
+  dataprintf("Logging negation of AST Constraint:\n%s\n",
+      Z3_ast_to_string(g_context, not_constraint));
   Z3_inc_ref(g_context, not_constraint);
 
   Z3_solver_push(g_context, g_solver);
   Z3_solver_assert(g_context, g_solver, taken ? not_constraint : constraint);
   fprintf(g_log, "Trying to solve:\n%s\n",
           Z3_solver_to_string(g_context, g_solver));
+  dataprintf("Trying to solve:\n%s\n",
+          Z3_solver_to_string(g_context, g_solver));
 
   Z3_lbool feasible = Z3_solver_check(g_context, g_solver);
-  if (feasible == Z3_L_TRUE) {
+  if (feasible == Z3_L_TRUE)
+  {
     Z3_model model = Z3_solver_get_model(g_context, g_solver);
     Z3_model_inc_ref(g_context, model);
     fprintf(g_log, "Found diverging input:\n%s\n",
             Z3_model_to_string(g_context, model));
+    dataprintf("Found diverging input:\n%s\n",
+            Z3_model_to_string(g_context, model));
     Z3_model_dec_ref(g_context, model);
-  } else {
+  }
+  else
+  {
     fprintf(g_log, "Can't find a diverging input at this point\n");
+    dataprintf("Can't find a diverging input at this point\n");
   }
   fflush(g_log);
+  fflush(g_data_log);
 
   Z3_solver_pop(g_context, g_solver, 1);
 
@@ -471,16 +554,19 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   Z3_dec_ref(g_context, not_constraint);
 }
 
-SymExpr _sym_concat_helper(SymExpr a, SymExpr b) {
+SymExpr _sym_concat_helper(SymExpr a, SymExpr b)
+{
   return registerExpression(Z3_mk_concat(g_context, a, b));
 }
 
-SymExpr _sym_extract_helper(SymExpr expr, size_t first_bit, size_t last_bit) {
+SymExpr _sym_extract_helper(SymExpr expr, size_t first_bit, size_t last_bit)
+{
   return registerExpression(
       Z3_mk_extract(g_context, first_bit, last_bit, expr));
 }
 
-size_t _sym_bits_helper(SymExpr expr) {
+size_t _sym_bits_helper(SymExpr expr)
+{
   auto *sort = Z3_get_sort(g_context, expr);
   Z3_inc_ref(g_context, (Z3_ast)sort);
   auto result = Z3_get_bv_sort_size(g_context, sort);
@@ -494,11 +580,13 @@ void _sym_notify_ret(uintptr_t) {}
 void _sym_notify_basic_block(uintptr_t) {}
 
 /* Debugging */
-const char *_sym_expr_to_string(SymExpr expr) {
+const char *_sym_expr_to_string(SymExpr expr)
+{
   return Z3_ast_to_string(g_context, expr);
 }
 
-bool _sym_feasible(SymExpr expr) {
+bool _sym_feasible(SymExpr expr)
+{
   expr = Z3_simplify(g_context, expr);
   Z3_inc_ref(g_context, expr);
 
@@ -512,7 +600,8 @@ bool _sym_feasible(SymExpr expr) {
 }
 
 /* Garbage collection */
-void _sym_collect_garbage() {
+void _sym_collect_garbage()
+{
   if (allocatedExpressions.size() < g_config.garbageCollectionThreshold)
     return;
 
@@ -523,10 +612,14 @@ void _sym_collect_garbage() {
 
   auto reachableExpressions = collectReachableExpressions();
   for (auto expr_it = allocatedExpressions.begin();
-       expr_it != allocatedExpressions.end();) {
-    if (reachableExpressions.count(*expr_it) == 0) {
+       expr_it != allocatedExpressions.end();)
+  {
+    if (reachableExpressions.count(*expr_it) == 0)
+    {
       expr_it = allocatedExpressions.erase(expr_it);
-    } else {
+    }
+    else
+    {
       ++expr_it;
     }
   }

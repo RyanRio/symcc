@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import argparse
+import shutil
+import subprocess
+import yaml
+
+_environ = os.environ.copy()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", dest="make", action='store_true', help="run cmake in addition to ninja check")
+parser.add_argument("-c", dest="clean", action='store_true', help="clean directory")
+parser.add_argument("--build", dest="runtime", choices=["z3", "qsym"], default="z3", help="build with the qsym or z3 runtime")
+
+args = parser.parse_args()
+
+qsym = args.runtime == 'qsym'
+build_dir = './' + args.runtime + '-build'
+
+os.chdir("..")
+
+if args.clean:
+    shutil.rmtree(build_dir)
+    os.mkdir(build_dir)
+    os.chdir(build_dir)
+else:
+    os.chdir(build_dir)
+
+if not args.make:
+    # check if enforce make
+    contents = os.listdir()
+    if len(contents) == 0:
+        args.make = True
+
+if args.make:
+    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', '../../']
+    subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+
+cmd = ['ninja', 'check']
+subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+
+os.environ.clear()
+os.environ.update(_environ)

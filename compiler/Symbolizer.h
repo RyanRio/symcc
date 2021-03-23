@@ -23,8 +23,10 @@
 
 #include "Runtime.h"
 
-class Symbolizer : public llvm::InstVisitor<Symbolizer> {
+class Symbolizer : public llvm::InstVisitor<Symbolizer>
+{
 public:
+
   explicit Symbolizer(llvm::Module &M)
       : runtime(M), dataLayout(M.getDataLayout()),
         ptrBits(M.getDataLayout().getPointerSizeInBits()),
@@ -130,27 +132,31 @@ public:
   void visitUnreachableInst(llvm::UnreachableInst &);
   void visitInstruction(llvm::Instruction &I);
 
-private:
-  static constexpr unsigned kExpectedMaxPHINodesPerFunction = 16;
-  static constexpr unsigned kExpectedSymbolicArgumentsPerComputation = 2;
-
   /// A symbolic input.
-  struct Input {
+  struct Input
+  {
     llvm::Value *concreteValue;
     unsigned operandIndex;
     llvm::Instruction *user;
 
-    llvm::Value *getSymbolicOperand() const {
+    llvm::Value *getSymbolicOperand() const
+    {
       return user->getOperand(operandIndex);
     }
 
-    void replaceOperand(llvm::Value *newOperand) {
+    void replaceOperand(llvm::Value *newOperand)
+    {
       user->setOperand(operandIndex, newOperand);
     }
   };
 
+private:
+  static constexpr unsigned kExpectedMaxPHINodesPerFunction = 16;
+  static constexpr unsigned kExpectedSymbolicArgumentsPerComputation = 2;
+
   /// A symbolic computation with its inputs.
-  struct SymbolicComputation {
+  struct SymbolicComputation
+  {
     llvm::Instruction *firstInstruction = nullptr, *lastInstruction = nullptr;
     llvm::SmallVector<Input, kExpectedSymbolicArgumentsPerComputation> inputs;
 
@@ -165,7 +171,8 @@ private:
     ///
     /// The computation that is to be appended must occur after the one that
     /// this method is called on.
-    void merge(const SymbolicComputation &other) {
+    void merge(const SymbolicComputation &other)
+    {
       if (&other == this)
         return;
 
@@ -179,11 +186,13 @@ private:
 
     friend llvm::raw_ostream &
     operator<<(llvm::raw_ostream &out,
-               const Symbolizer::SymbolicComputation &computation) {
+               const Symbolizer::SymbolicComputation &computation)
+    {
       out << "\nComputation starting at " << *computation.firstInstruction
           << "\n...ending at " << *computation.lastInstruction
           << "\n...with inputs:\n";
-      for (const auto &input : computation.inputs) {
+      for (const auto &input : computation.inputs)
+      {
         out << '\t' << *input.concreteValue << '\n';
       }
       return out;
@@ -194,12 +203,14 @@ private:
   llvm::CallInst *createValueExpression(llvm::Value *V, llvm::IRBuilder<> &IRB);
 
   /// Get the (already created) symbolic expression for a value.
-  llvm::Value *getSymbolicExpression(llvm::Value *V) {
+  llvm::Value *getSymbolicExpression(llvm::Value *V)
+  {
     auto exprIt = symbolicExpressions.find(V);
     return (exprIt != symbolicExpressions.end()) ? exprIt->second : nullptr;
   }
 
-  llvm::Value *getSymbolicExpressionOrNull(llvm::Value *V) {
+  llvm::Value *getSymbolicExpressionOrNull(llvm::Value *V)
+  {
     auto *expr = getSymbolicExpression(V);
     if (expr == nullptr)
       return llvm::ConstantPointerNull::get(
@@ -207,7 +218,8 @@ private:
     return expr;
   }
 
-  bool isLittleEndian(llvm::Type *type) {
+  bool isLittleEndian(llvm::Type *type)
+  {
     return (!type->isAggregateType() && dataLayout.isLittleEndian());
   }
 
@@ -227,11 +239,13 @@ private:
   /// instruction is emitted and the function returns null.
   std::optional<SymbolicComputation>
   buildRuntimeCall(llvm::IRBuilder<> &IRB, SymFnT function,
-                   llvm::ArrayRef<std::pair<llvm::Value *, bool>> args) {
+                   llvm::ArrayRef<std::pair<llvm::Value *, bool>> args)
+  {
     if (std::all_of(args.begin(), args.end(),
                     [this](std::pair<llvm::Value *, bool> arg) {
                       return (getSymbolicExpression(arg.first) == nullptr);
-                    })) {
+                    }))
+    {
       return {};
     }
 
@@ -241,9 +255,12 @@ private:
   /// Convenience overload that treats all arguments as symbolic.
   std::optional<SymbolicComputation>
   buildRuntimeCall(llvm::IRBuilder<> &IRB, SymFnT function,
-                   llvm::ArrayRef<llvm::Value *> symbolicArgs) {
+                   llvm::ArrayRef<llvm::Value *> symbolicArgs)
+  {
+
     std::vector<std::pair<llvm::Value *, bool>> args;
-    for (const auto &arg : symbolicArgs) {
+    for (const auto &arg : symbolicArgs)
+    {
       args.emplace_back(arg, true);
     }
 
@@ -254,7 +271,8 @@ private:
   /// corresponding to the concrete value and record the computation for
   /// short-circuiting.
   void registerSymbolicComputation(const SymbolicComputation &computation,
-                                   llvm::Value *concrete = nullptr) {
+                                   llvm::Value *concrete = nullptr)
+  {
     if (concrete != nullptr)
       symbolicExpressions[concrete] = computation.lastInstruction;
     expressionUses.push_back(computation);
@@ -263,7 +281,8 @@ private:
   /// Convenience overload for chaining with buildRuntimeCall.
   void registerSymbolicComputation(
       const std::optional<SymbolicComputation> &computation,
-      llvm::Value *concrete = nullptr) {
+      llvm::Value *concrete = nullptr)
+  {
     if (computation)
       registerSymbolicComputation(*computation, concrete);
   }
@@ -287,7 +306,8 @@ private:
   ///
   /// 2. Pragmatism: Changing the backend to accept and process 64-bit values
   /// would require modifying code that we don't control (in the case of Qsym).
-  llvm::ConstantInt *getTargetPreferredInt(void *pointer) {
+  llvm::ConstantInt *getTargetPreferredInt(void *pointer)
+  {
     return llvm::ConstantInt::get(intPtrType,
                                   reinterpret_cast<uint64_t>(pointer));
   }
