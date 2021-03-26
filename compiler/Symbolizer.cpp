@@ -205,7 +205,7 @@ void Symbolizer::shortCircuitExpressionUses()
           symbolicComputation.lastInstruction,
           symbolicComputation.lastInstruction->getParent());
     }
-    c.complete();
+    // c.complete();
   }
 }
 

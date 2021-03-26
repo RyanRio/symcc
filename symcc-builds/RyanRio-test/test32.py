@@ -10,7 +10,7 @@ import argparse
 # parse args
 parser = argparse.ArgumentParser()
 parser.add_argument("--f", nargs=2, dest="file", help="run a single file with the given input'")
-parser.add_argument("--lib", dest="target", choices=["tinyexpr", "file"], help="run with a full library")
+parser.add_argument("--lib", dest="target", choices=["tinyexpr"], help="run with a full library")
 parser.add_argument("-c", dest="clean", action='store_true', help="clean directory structure")
 
 args = parser.parse_args()
@@ -21,8 +21,8 @@ _environ = os.environ.copy()
 
 cwd = os.path.dirname(os.getcwd())
 
-z3_cwd = os.path.join(cwd, 'z3-build')
-qsym_cwd = os.path.join(cwd, 'qsym-build')
+z3_cwd = os.path.join(cwd, 'z3-build-32')
+qsym_cwd = os.path.join(cwd, 'qsym-build-32')
 
 executables = [directory + '/symcc' for directory in [z3_cwd, qsym_cwd]]
 exe_locations = [os.path.split(os.path.dirname(exe))[1] for exe in executables]
@@ -31,18 +31,15 @@ exe_locations = [os.path.split(os.path.dirname(exe))[1] for exe in executables]
 corpora_src = os.path.join(os.getcwd(), 'corpora/corpora-src')
 makefile_loc = "src/" # where to go from a source directory to access makefile
 tiny_expr = os.path.join(corpora_src, '11/tinyexprB2')
-fileB5 = os.path.join(corpora_src, "11/fileB5")
 all_queues_dir = os.path.join(os.getcwd(), "fuzz-queue", "symcc")
 all_queues = os.listdir(all_queues_dir)
 
 target_map = {
-    "tinyexpr": tiny_expr,
-    "file": fileB5
+    "tinyexpr": tiny_expr
 }
 
 binname_map = {
-    "tinyexpr": "src/math",
-    "file": "src/file"
+    "tinyexpr": "src/math"
 }
 
 def build_input(idx, executable):
@@ -53,16 +50,14 @@ def build_input(idx, executable):
 
 def clean_dirs():
     exclude = ["corpora", "build.py", "test.py", "compile-config.yaml", "runtime-config.yaml", "custom_programs", "fuzz-queue", "unsquash.py",
-                "config.yaml", "build32.py", "test32.py", "README.md", "file"]
+                "config.yaml"]
     file_dirs = os.listdir("./")
-    delete = input(f"about to delete: {list(filter(lambda f: f not in exclude, file_dirs))}, are you sure?")
-    if delete == "y":
-        for fd in file_dirs:
-            if fd not in exclude:
-                if os.path.isdir(fd):
-                    shutil.rmtree(fd)
-                else:
-                    os.remove(fd)
+    for fd in file_dirs:
+        if fd not in exclude:
+            if os.path.isdir(fd):
+                shutil.rmtree(fd)
+            else:
+                os.remove(fd)
 
 # fix the given dir
 built_dir = os.getcwd()
@@ -143,19 +138,18 @@ if args.file or args.target:
                         exit(result.returncode)
         else:
             os.environ["CC"] = EXECUTABLE
-            #os.environ["CFLAGS"] = "-m32 -w"
+            os.environ["CFLAGS"] = "-m32 -w"
             target_path = target_map[args.target] + "/src/"
             cur_path = os.getcwd()
-            # result = subprocess.run([f"make", "clean", "-C", target_path], env=os.environ)
-            # result = subprocess.run([f"make", "-C", target_path], env=os.environ)
+            result = subprocess.run([f"make", "clean", "-C", target_path], env=os.environ)
+            result = subprocess.run([f"make", "-C", target_path], env=os.environ)
 
             new_exe = args.target + "-tmp"
 
             # now run bin
             target_bin = binname_map[args.target]
             #   copy bin
-            # shutil.copyfile(os.path.join(target_path, target_bin), new_exe) TODO: tmp remove
-            shutil.copyfile(os.path.join("file-build", "bin", "file"), new_exe)
+            shutil.copyfile(os.path.join(target_path, target_bin), new_exe)
             subprocess.run(["chmod", "+x", new_exe], env=os.environ)
             # run through queue
             
@@ -164,12 +158,26 @@ if args.file or args.target:
             
             for queue_dir in filter(lambda n: args.target in n, all_queues):
                 single_queue_folder = os.path.join(all_queues_dir, queue_dir, "queue/queue")
+                old_symcc_log_env = os.environ["SYMCC_LOG_FILE"]
+                old_ryanrio_data_log_env = os.environ["SYMCC_LOG_FILE"]
+                old_ryanrio_compile_log_env = os.environ["SYMCC_LOG_FILE"]
                 for queue_file in filter(lambda s: s.startswith("id"), os.listdir(single_queue_folder)):
+                    if "SYMCC_LOG_FILE" in os.environ:
+                        os.environ["SYMCC_LOG_FILE"] = f"{old_symcc_log_env}_{queue_file}"
+                    if "RYANRIO_DATA_LOG_FILE" in os.environ:
+                        os.environ["RYANRIO_DATA_LOG_FILE"] = f"{old_ryanrio_data_log_env}_{queue_file}"
+                    if "RYANRIO_COMPILE_LOG_FILE" in os.environ:
+                        os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"{old_ryanrio_compile_log_env}_{queue_file}"
                     cmd = build_lib_input(new_exe, os.path.join(single_queue_folder, queue_file))
                     print(f"\nrunning: {target_bin} on file {os.path.join(single_queue_folder, queue_file)} using command: {cmd}")
-                    os.environ["SYMCC_INPUT_FILE"] = os.path.join(single_queue_folder, queue_file)
                     subprocess.run(' '.join(cmd), shell=True, env=os.environ)
-                    input("Continue?")
+                    # input("Continue?")
+                if "SYMCC_LOG_FILE" in os.environ:
+                    os.environ["SYMCC_LOG_FILE"] = f"{old_symcc_log_env}"
+                if "RYANRIO_DATA_LOG_FILE" in os.environ:
+                    os.environ["RYANRIO_DATA_LOG_FILE"] = f"{old_ryanrio_data_log_env}"
+                if "RYANRIO_COMPILE_LOG_FILE" in os.environ:
+                    os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"{old_ryanrio_compile_log_env}"
 
             # rm bin
             os.remove(new_exe)

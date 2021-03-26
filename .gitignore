@@ -50,3 +50,11 @@ symcc-builds/RyanRio-test/fuzz-queue
 symcc-builds/RyanRio-test/output-qsym-build
 symcc-builds/RyanRio-test/output-z3-build
 symcc-builds/RyanRio-test/corpora
+tinyexpr/
+tcpdump/
+file-build/
+libpcap/
+file/
+z3-builds/
+qsym-build-32
+z3-build-32

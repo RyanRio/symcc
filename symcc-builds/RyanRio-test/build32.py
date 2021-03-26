@@ -16,10 +16,10 @@ parser.add_argument("--build", dest="runtime", choices=["z3", "qsym"], default="
 
 args = parser.parse_args()
 
-z3_build_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), "z3-builds", "64")
+z3_build_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), "32")
 
 qsym = args.runtime == 'qsym'
-build_dir = './' + args.runtime + '-build'
+build_dir = './' + args.runtime + '-build-32'
 
 os.chdir("..")
 
@@ -28,6 +28,7 @@ if args.clean:
     os.mkdir(build_dir)
     os.chdir(build_dir)
     exit(0)
+    # clean exits
 else:
     os.chdir(build_dir)
 
@@ -38,7 +39,7 @@ if not args.make:
         args.make = True
 
 if args.make:
-    cmd = ['cmake', '-G', 'Ninja', '-DDEBUG=ON', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build', '../../']
+    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build', f'-DZ3_32BIT_DIR=/home/savethefishes/Documents/z3/build-32', '-DTARGET_32BIT=ON', '../../']
     subprocess.run(' '.join(cmd), shell=True, env=os.environ)
 
 cmd = ['ninja', 'check']

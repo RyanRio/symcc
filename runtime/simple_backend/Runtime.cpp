@@ -172,7 +172,7 @@ void _sym_initialize(void)
   }
   else
   {
-    g_data_log = fopen(g_config.dataLogFile.c_str(), "w");
+    g_data_log = fopen(g_config.dataLogFile.c_str(), "a");
   }
   
 }
@@ -495,7 +495,7 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
 
   if (Z3_is_eq_ast(g_context, constraint, Z3_mk_true(g_context)))
   {
-    dataprintf(" -- constraint reduced to true");
+    // dataprintf(" -- constraint reduced to true");
     assert(taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
@@ -503,7 +503,7 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
 
   if (Z3_is_eq_ast(g_context, constraint, Z3_mk_false(g_context)))
   {
-    dataprintf(" -- constraint reduced to false");
+    // dataprintf(" -- constraint reduced to false");
     assert(!taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
@@ -512,16 +512,16 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   /* Generate a solution for the alternative */
   Z3_ast not_constraint =
       Z3_simplify(g_context, Z3_mk_not(g_context, constraint));
-  dataprintf("Logging negation of AST Constraint:\n%s\n",
-      Z3_ast_to_string(g_context, not_constraint));
+  // dataprintf("Logging negation of AST Constraint:\n%s\n",
+  //     Z3_ast_to_string(g_context, not_constraint));
   Z3_inc_ref(g_context, not_constraint);
 
   Z3_solver_push(g_context, g_solver);
   Z3_solver_assert(g_context, g_solver, taken ? not_constraint : constraint);
   fprintf(g_log, "Trying to solve:\n%s\n",
           Z3_solver_to_string(g_context, g_solver));
-  dataprintf("Trying to solve:\n%s\n",
-          Z3_solver_to_string(g_context, g_solver));
+  // dataprintf("Trying to solve:\n%s\n",
+  //         Z3_solver_to_string(g_context, g_solver));
 
   Z3_lbool feasible = Z3_solver_check(g_context, g_solver);
   if (feasible == Z3_L_TRUE)
@@ -530,14 +530,14 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
     Z3_model_inc_ref(g_context, model);
     fprintf(g_log, "Found diverging input:\n%s\n",
             Z3_model_to_string(g_context, model));
-    dataprintf("Found diverging input:\n%s\n",
-            Z3_model_to_string(g_context, model));
+    // dataprintf("Found diverging input:\n%s\n",
+    //         Z3_model_to_string(g_context, model));
     Z3_model_dec_ref(g_context, model);
   }
   else
   {
     fprintf(g_log, "Can't find a diverging input at this point\n");
-    dataprintf("Can't find a diverging input at this point\n");
+    // dataprintf("Can't find a diverging input at this point\n");
   }
   fflush(g_log);
   fflush(g_data_log);

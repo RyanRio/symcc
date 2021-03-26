@@ -92,8 +92,8 @@ public:
     void operator=(const Analyzer &) = delete;
 
 private:
-    llvm::raw_fd_ostream *g_data_log = nullptr;
-    llvm::raw_fd_ostream *g_data_json = nullptr;
+    llvm::raw_ostream *g_data_log = nullptr;
+    llvm::raw_ostream *g_data_json = nullptr;
     int cur_offset = 0;
     int g_id = 0;            // function identifier
     bool symbolized = false; // whether an incoming instruction is symbolized

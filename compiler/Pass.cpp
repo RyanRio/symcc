@@ -72,7 +72,7 @@ bool SymbolizePass::runOnFunction(Function &F)
   DEBUG(errs() << "Symbolizing function ");
   DEBUG(errs().write_escaped(functionName) << '\n');
 
-  Analyzer::instance().IncrementFunction(functionName);
+  // Analyzer::instance().IncrementFunction(functionName);
 
   SmallVector<Instruction *, 0> allInstructions;
 
@@ -92,9 +92,9 @@ bool SymbolizePass::runOnFunction(Function &F)
 
   for (auto *instPtr : allInstructions)
   {
-    Analyzer::instance().AddInstructionPreSymbolize(*instPtr);
+    // Analyzer::instance().AddInstructionPreSymbolize(*instPtr);
     symbolizer.visit(instPtr);
-    Analyzer::instance().AddInstructionPostSymbolize(*instPtr);
+    // Analyzer::instance().AddInstructionPostSymbolize(*instPtr);
   }
 
   symbolizer.finalizePHINodes();
@@ -107,9 +107,9 @@ bool SymbolizePass::runOnFunction(Function &F)
   return true;
 }
 
-bool SymbolizePass::doFinalization(Module& M)
-{
-  Analyzer::instance().Finalize(M);
-  return false;
-}
+// bool SymbolizePass::doFinalization(Module& M)
+// {
+//   // Analyzer::instance().Finalize(M);
+//   return false;
+// }
 
