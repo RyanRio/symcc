@@ -39,7 +39,10 @@ if not args.make:
         args.make = True
 
 if args.make:
-    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build', f'-DZ3_32BIT_DIR=/home/savethefishes/Documents/z3/build-32', '-DTARGET_32BIT=ON', '../../']
+    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build-32', 
+    f'-DZ3_32BIT_DIR=/home/savethefishes/Documents/z3/build-32', '-DTARGET_32BIT=ON', '../../',
+    '-DCMAKE_C_COMPILER=/usr/bin/clang-11', '-DCMAKE_CXX_COMPILER=/usr/bin/clang++-11']
+    # '-DLLVM_32BIT_DIR=']
     subprocess.run(' '.join(cmd), shell=True, env=os.environ)
 
 cmd = ['ninja', 'check']

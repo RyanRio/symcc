@@ -97,7 +97,7 @@ void Symbolizer::shortCircuitExpressionUses()
   for (auto &symbolicComputation : expressionUses)
   {
     // write the symbolic computation
-    SymbolicComputationAnalyzer c = Analyzer::instance().AddSymbolicComputation(symbolicComputation.firstInstruction, symbolicComputation.lastInstruction, symbolicComputation.inputs);
+    // SymbolicComputationAnalyzer c = Analyzer::instance().AddSymbolicComputation(symbolicComputation.firstInstruction, symbolicComputation.lastInstruction, symbolicComputation.inputs);
 
     assert(!symbolicComputation.inputs.empty() &&
            "Symbolic computation has no inputs");
@@ -153,8 +153,8 @@ void Symbolizer::shortCircuitExpressionUses()
       bool needRuntimeCheck = originalArgExpression != nullExpression;
       if (needRuntimeCheck && (numUnknownConcreteness == 1))
       {
-        c.runtimeCheck(false);
-        c.assertSymbolic();
+        // c.runtimeCheck(false);
+        // c.assertSymbolic();
         continue;
       }
       if (needRuntimeCheck)
@@ -175,7 +175,7 @@ void Symbolizer::shortCircuitExpressionUses()
       Value *finalArgExpression;
       if (needRuntimeCheck)
       {
-        c.runtimeCheck(true);
+        // c.runtimeCheck(true);
         IRB.SetInsertPoint(symbolicComputation.firstInstruction);
         auto *argPHI = IRB.CreatePHI(IRB.getInt8PtrTy(), 2);
         argPHI->addIncoming(originalArgExpression, argCheckBlock);
@@ -185,7 +185,7 @@ void Symbolizer::shortCircuitExpressionUses()
       else
       {
         finalArgExpression = newArgExpression;
-        c.runtimeCheck(false);
+        // c.runtimeCheck(false);
       }
 
       argument.replaceOperand(finalArgExpression);
@@ -472,6 +472,7 @@ void Symbolizer::visitBranchInst(BranchInst &I)
   if (I.isUnconditional())
     return;
 
+  llvm::outs() << getTargetPreferredInt(&I) << I << "\n";
   IRBuilder<> IRB(&I);
   auto runtimeCall = buildRuntimeCall(IRB, runtime.pushPathConstraint,
                                       {{I.getCondition(), true},

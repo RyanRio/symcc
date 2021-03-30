@@ -471,7 +471,7 @@ Z3_ast _sym_build_bool_to_bits(Z3_ast expr, uint8_t bits)
 }
 
 // macro so we don't clog stderr which symcc uses
-#define dataprintf(format, ...) if(g_data_log!=NULL) fprintf (g_data_log, format __VA_OPT__(,) __VA_ARGS__)
+// #define dataprintf(format, ...) if(g_data_log!=NULL) fprintf (g_data_log, format __VA_OPT__(,) __VA_ARGS__)
 
 void _sym_push_path_constraint(Z3_ast constraint, int taken,
                                uintptr_t site_id [[maybe_unused]])
@@ -479,13 +479,13 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   if (constraint == nullptr)
     return;
 
-  dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+  // dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
 
-  dataprintf("has id: %ld\n", site_id);
+  // dataprintf("has id: %ld\n", site_id);
 
   constraint = Z3_simplify(g_context, constraint);
 
-  dataprintf(" -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+  // dataprintf(" -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
 
   Z3_inc_ref(g_context, constraint);
 

@@ -100,7 +100,6 @@ bool SymbolizePass::runOnFunction(Function &F)
   symbolizer.finalizePHINodes();
   symbolizer.shortCircuitExpressionUses();
 
-  // DEBUG(errs() << F << '\n');
   assert(!verifyFunction(F, &errs()) &&
          "SymbolizePass produced invalid bitcode");
 

@@ -37,12 +37,18 @@ if not args.make:
     if len(contents) == 0:
         args.make = True
 
+os.environ["SYMCC_LOG_FILE"] = f"symcc_log"
+os.environ["RYANRIO_DATA_LOG_FILE"] = f"data_log"
+os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"compile_log"
+
 if args.make:
-    cmd = ['cmake', '-G', 'Ninja', '-DDEBUG=ON', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build', '../../']
-    subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', 
+    f'-DZ3_DIR=/home/savethefishes/Documents/z3/build-32', 
+    '../../']
+    subprocess.run(cmd, env=os.environ)
 
 cmd = ['ninja', 'check']
-subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+subprocess.run(cmd, env=os.environ)
 
 os.environ.clear()
 os.environ.update(_environ)

@@ -10,6 +10,7 @@ Analyzer &Analyzer::instance()
 
 Analyzer::Analyzer()
 {
+
     auto *dataLogFile = getenv("RYANRIO_COMPILE_LOG_FILE");
     std::error_code file_err;
     if (dataLogFile != nullptr)
@@ -45,8 +46,10 @@ Analyzer::Analyzer()
     }
     else
     {
-        g_data_log = &llvm::outs();
-        g_data_json = &llvm::outs();
+        printf("bad! :%s\n", dataLogFile);
+        exit(0);
+        g_data_log = &llvm::errs();
+        g_data_json = &llvm::errs();
     }
 }
 
