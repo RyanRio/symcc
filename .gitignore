@@ -44,12 +44,12 @@ compile_commands.json
 # corpora
 symcc-builds/qsym-build
 symcc-builds/z3-build
-symcc-builds/RyanRio-test/compile-qsym-build
-symcc-builds/RyanRio-test/compile-z3-build
-symcc-builds/RyanRio-test/fuzz-queue
-symcc-builds/RyanRio-test/output-qsym-build
-symcc-builds/RyanRio-test/output-z3-build
-symcc-builds/RyanRio-test/corpora
+symcc-builds/mods/compile-qsym-build
+symcc-builds/mods/compile-z3-build
+symcc-builds/mods/fuzz-queue
+symcc-builds/mods/output-qsym-build
+symcc-builds/mods/output-z3-build
+symcc-builds/mods/corpora
 tinyexpr/
 tcpdump/
 file-build/

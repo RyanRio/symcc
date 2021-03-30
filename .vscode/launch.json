@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/symcc-builds/RyanRio-test"
+            "cwd": "${workspaceFolder}/symcc-builds/mods"
         }
     ]
 }

@@ -10,15 +10,15 @@ cd file
 
 install:
 z3
-SYMCC_NO_SYMBOLIC_INPUT=1 CC=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/z3-build/symcc CCX=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/z3-build/sym++ ./configure --exec-prefix=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/RyanRio-test/file-build
+SYMCC_NO_SYMBOLIC_INPUT=1 CC=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/z3-build/symcc CCX=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/z3-build/sym++ ./configure --exec-prefix=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/mods/file-build
 
 SYMCC_NO_SYMBOLIC_INPUT=1 SYMCC_LOG_FILE=./symcc_log RYANRIO_DATA_LOG_FILE=./data_log RYANRIO_COMPILE_LOG_FILE=./compile_log sudo make clean
 SYMCC_NO_SYMBOLIC_INPUT=1 SYMCC_LOG_FILE=./symcc_log RYANRIO_DATA_LOG_FILE=./data_log RYANRIO_COMPILE_LOG_FILE=./compile_log sudo make install
 
-SYMCC_INPUT_FILE=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/RyanRio-test/fuzz-queue/symcc/fileB3_Q00/queue/queue/id:002147,src:000289 RYANRIO_DATA_LOG_FILE=./test.txt SYMCC_LOG_FILE="symcc-log.txt" file-build/bin/file /home/savethefishes/Documents/RyanRio/symcc/symcc-builds/RyanRio-test/fuzz-queue/symcc/fileB3_Q00/queue/queue/id:002147,src:000289
+SYMCC_INPUT_FILE=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/mods/fuzz-queue/symcc/fileB3_Q00/queue/queue/id:002147,src:000289 RYANRIO_DATA_LOG_FILE=./test.txt SYMCC_LOG_FILE="symcc-log.txt" file-build/bin/file /home/savethefishes/Documents/RyanRio/symcc/symcc-builds/mods/fuzz-queue/symcc/fileB3_Q00/queue/queue/id:002147,src:000289
 
 qsym
-SYMCC_NO_SYMBOLIC_INPUT=1 CC=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/qsym-build/symcc CCX=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/qsym-build/sym++ ./configure --exec-prefix=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/RyanRio-test/file-build
+SYMCC_NO_SYMBOLIC_INPUT=1 CC=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/qsym-build/symcc CCX=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/qsym-build/sym++ ./configure --exec-prefix=/home/savethefishes/Documents/RyanRio/symcc/symcc-builds/mods/file-build
 
 SYMCC_NO_SYMBOLIC_INPUT=1 SYMCC_LOG_FILE=./symcc_log RYANRIO_DATA_LOG_FILE=./data_log RYANRIO_COMPILE_LOG_FILE=./compile_log sudo make clean
 SYMCC_NO_SYMBOLIC_INPUT=1 SYMCC_LOG_FILE=./symcc_log RYANRIO_DATA_LOG_FILE=./data_log RYANRIO_COMPILE_LOG_FILE=./compile_log sudo make install
