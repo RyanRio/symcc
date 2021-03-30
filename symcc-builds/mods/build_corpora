@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import argparse
+import shutil
+import subprocess
+import yaml
+
+# GOAL: build programs located in the programs32/ and programs64/ dirs, into the program32_build and program64_build dirs
+_environ = os.environ.copy()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", dest="clean", action='store_true', help="clean directory")
+parser.add_argument("-use-corpora", dest="use_corpora", action='store_true', help="use corpora overrides for a program if available")
+parser.add_argument("--arch", dest="arch", choices=["32", "64"], default="BOTH", help="optionally build just 32 bit or 64 bit")
+parser.add_argument("--runtime", dest="runtime", choices=["z3", "qsym"], default="qsym", help="build with the z3 runtime backend or the qsym runtime backend")
+
+args = parser.parse_args()
+
+arch = args.arch
+runtime = args.runtime
+
+# set up directories
+top_dir = os.getcwd()
+programs32 = os.path.join(top_dir, "programs32")
+programs64 = os.path.join(top_dir, "programs64")
+programs32_build = os.path.join(top_dir, "programs32_build")
+programs64_build = os.path.join(top_dir, "programs64_build")
+
+os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"compile_log"
+
+if args.clean:
+    shutil.rmtree(programs32_build)
+    os.mkdir(programs32_build)
+    shutil.rmtree(programs64_build)
+    os.mkdir(programs64_build)
+    exit(0)
+
+# set up builds
+supported_programs = ["tinyexpr"]
+# makefile_mapping: where the Makefile is located within the program directory. i.e. the tinyexpr makefile is located
+# at tinyexpr/Makefile, so the value in the mapping is ""
+makefile_mapping = {
+    "tinyexpr": ""
+}
+# how to run the executable
+executable_mapping = {
+    "tinyexpr": "tinyexpr_file"
+}
+
+# define corpora vars to use if use-corpora is set
+top_copora_dir = os.path.join(top_dir, "corpora", "corpora-src")
+corpora_mapping = {
+    "tinyexpr": "11/tinyexprB2/src"
+}
+corpora_makefile_mapping = {
+    "tinyexpr": ""
+}
+corpora_executable_mapping = {
+    "tinyexpr": "src/math"
+}
+
+# get the runtime directory given a certain architecture
+def getRuntimeDir(arch):
+    parent = os.path.dirname(top_dir)
+    return os.path.join(parent, f"{runtime}-build-{arch}")
+
+def build(runtime):
+    #symcc build
+    runtime_dir = getRuntimeDir(runtime)
+    CC = os.path.join(runtime_dir, "symcc")
+    CXX = os.path.join(runtime_dir, "sym++")
+    CFLAGS = "-m32 -w" if runtime == "32" else ""
+    os.environ["CC"] = CC
+    os.environ["CXX"] = CXX
+    os.environ["CCFLAGS"] = CFLAGS
+    os.environ["CFLAGS"] = CFLAGS
+    os.environ["SYMCC_NO_SYMBOLIC_INPUT"] = "1"
+    # programs
+    programsDir = programs32 if runtime == "32" else programs64
+    programsBuildDir = programs32_build if runtime == "32" else programs64_build
+
+    program_list = os.listdir(programsDir)
+    program_list = filter(lambda p: p in supported_programs, program_list)
+
+    for p in program_list:
+        # if use corpora is not set or the program is not supported by the corpora
+        if not args.use_corpora or p not in corpora_mapping:
+            makefile = os.path.join(programsDir, p, makefile_mapping[p])
+            subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
+            subprocess.run([f"make", "-C", makefile], env=os.environ)
+            shutil.copyfile(os.path.join(programsDir, p, executable_mapping[p]), os.path.join(programsBuildDir, p))
+            subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
+        else:
+            makefile = os.path.join(top_copora_dir, corpora_mapping[p])
+            subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
+            subprocess.run([f"make", "-C", makefile], env=os.environ)
+            shutil.copyfile(os.path.join(top_copora_dir, corpora_mapping[p], corpora_executable_mapping[p]), os.path.join(programsBuildDir, p))
+            subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
+
+if arch == "BOTH":
+    build("32")
+    build("64")
+else:
+    build(arch)
+
+os.environ.clear()
+os.environ.update(_environ)

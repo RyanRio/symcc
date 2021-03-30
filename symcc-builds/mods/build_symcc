@@ -12,14 +12,14 @@ _environ = os.environ.copy()
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", dest="make", action='store_true', help="run cmake in addition to ninja check")
 parser.add_argument("-c", dest="clean", action='store_true', help="clean directory")
-parser.add_argument("--build", dest="runtime", choices=["z3", "qsym"], default="z3", help="build with the qsym or z3 runtime")
+parser.add_argument("--runtime", dest="runtime", choices=["z3", "qsym"], default="z3", help="build with the qsym or z3 runtime")
 
 args = parser.parse_args()
 
-z3_build_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), "32")
+z3_build_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), "z3-builds", "64")
 
 qsym = args.runtime == 'qsym'
-build_dir = './' + args.runtime + '-build-32'
+build_dir = './' + args.runtime + '-build'
 
 os.chdir("..")
 
@@ -28,7 +28,6 @@ if args.clean:
     os.mkdir(build_dir)
     os.chdir(build_dir)
     exit(0)
-    # clean exits
 else:
     os.chdir(build_dir)
 
@@ -38,15 +37,18 @@ if not args.make:
     if len(contents) == 0:
         args.make = True
 
+os.environ["SYMCC_LOG_FILE"] = f"symcc_log"
+os.environ["RYANRIO_DATA_LOG_FILE"] = f"data_log"
+os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"compile_log"
+
 if args.make:
-    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', f'-DZ3_DIR=/home/savethefishes/Documents/z3/build-32', 
-    f'-DZ3_32BIT_DIR=/home/savethefishes/Documents/z3/build-32', '-DTARGET_32BIT=ON', '../../',
-    '-DCMAKE_C_COMPILER=/usr/bin/clang-11', '-DCMAKE_CXX_COMPILER=/usr/bin/clang++-11']
-    # '-DLLVM_32BIT_DIR=']
-    subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+    cmd = ['cmake', '-G', 'Ninja', f'-DQSYM_BACKEND={"ON" if qsym else "OFF"}', 
+    f'-DZ3_DIR=/home/savethefishes/Documents/z3/build-32', 
+    '../../']
+    subprocess.run(cmd, env=os.environ)
 
 cmd = ['ninja', 'check']
-subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+subprocess.run(cmd, env=os.environ)
 
 os.environ.clear()
 os.environ.update(_environ)

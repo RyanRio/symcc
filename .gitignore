@@ -42,16 +42,18 @@ compile_commands.json
 .clangd
 
 # corpora
-symcc-builds/qsym-build
-symcc-builds/z3-build
-symcc-builds/mods/compile-qsym-build
-symcc-builds/mods/compile-z3-build
-symcc-builds/mods/fuzz-queue
-symcc-builds/mods/output-qsym-build
-symcc-builds/mods/output-z3-build
-symcc-builds/mods/corpora
-tinyexpr/
-tcpdump/
+symcc-builds/qsym-build/
+symcc-builds/z3-build/
+symcc-builds/mods/compile-qsym-build/
+symcc-builds/mods/compile-z3-build/
+symcc-builds/mods/fuzz-queue/
+symcc-builds/mods/output-qsym-build/
+symcc-builds/mods/output-z3-build/
+symcc-builds/mods/corpora/
+programs32_build/
+programs64_build/
+programs32/
+programs64/
 file-build/
 libpcap/
 file/

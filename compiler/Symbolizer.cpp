@@ -472,7 +472,7 @@ void Symbolizer::visitBranchInst(BranchInst &I)
   if (I.isUnconditional())
     return;
 
-  llvm::outs() << getTargetPreferredInt(&I) << I << "\n";
+  // llvm::outs() << getTargetPreferredInt(&I) << I << "\n";
   IRBuilder<> IRB(&I);
   auto runtimeCall = buildRuntimeCall(IRB, runtime.pushPathConstraint,
                                       {{I.getCondition(), true},
