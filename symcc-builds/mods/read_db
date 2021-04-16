@@ -1,0 +1,258 @@
+#!/usr/bin/python3
+
+import sqlite3
+import argparse
+import functools
+import time
+import signal, os
+import threading
+import json
+import shutil
+
+con = sqlite3.connect('path_constraints.db')
+
+cur = con.cursor()
+
+tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint"]
+
+commands = {
+    "q": ("Quit the db reader", {}, {}),
+    "h": ("Receive information about all the commands", {}, {}),
+    "readTable": ("Read all the rows from a given table", {"tableName": "The table to read from"}, {"limit": "the number of args to read, default no limit"}),
+    "watch": ("Watch for changes to the unsat_path_constraint table", {}, {}),
+    "writeUnsats": ("write all the unsat path constraints to a file", {}, {}),
+    "sql": ("forward an sql query to the sqlite db", {"query": "The query to use"}, {})
+}
+
+
+def command(command_name):
+    def dec(command_func):
+        @functools.wraps(command_func)
+        def wrapper_call_command(*args, **kwargs):
+            command_tuple = commands[command_name]
+            num_args = len(command_tuple[1].keys())
+            if len(args) < num_args:
+                print("not enough args")
+                return
+            return command_func(*args)
+        return wrapper_call_command
+    return dec
+
+def get_spaces(tabs):
+    s = ""
+    for i in range(tabs):
+        s += "  "
+    return s
+
+@command("h")
+def get_help():
+    s = "Help: \n"
+    s += "The following commands are available:\n"
+    for command_key, command_tuple in commands.items():
+        s += f"\n{command_key}  --  "
+        s += f"\n\r Info: {command_tuple[0]}, Number of Required Args: {len(command_tuple[1].keys())}..."
+        required_args = command_tuple[1].items()
+        optional_args = command_tuple[2].items()
+
+        if len(required_args) == 0 and len(optional_args) == 0:
+            s += "\n"
+            continue
+        if len(required_args) != 0:
+            s += f"\n{get_spaces(2)}Required Args:"
+            for arg_key, arg_help in required_args:
+                s += f"\n{get_spaces(3)}Arg: {arg_key}, Arg Help: {arg_help}"
+        # if len(optional_args) != 0:
+        #     s += f"\n{get_spaces(2)}Optional Args:"
+        #     for arg_key, arg_help in optional_args:
+        #         s += f"\n{get_spaces(3)}Arg: {arg_key}, Arg Help: {arg_help}"
+
+        s += "\n"
+    print(s)
+
+@command("q")
+def quit():
+    exit(0)
+
+@command("readTable")
+def readTable(tableName, limit=None):
+    if limit:
+        limit_str = f" LIMIT {limit}"
+    else:
+        limit_str = ""
+    print(f"reading '{tableName}' with limit '{limit_str}'")
+    for row in cur.execute(f"SELECT * FROM {tableName}{limit_str}"):
+        for x in row:
+            print(x)
+
+def count_table(table_name):
+    for row in cur.execute(f"SELECT COUNT(*) FROM {table_name}"):
+        return row[0]
+    return 0
+
+watch_quit = False
+watch_time = 60
+
+to_run_after_watch = []
+to_run_lock = threading.Lock()
+
+def watch_handler(signum, frame):
+    global watch_quit
+    watch_quit = True
+    with to_run_lock:
+        to_run_after_watch.append(lambda: print("Done watching for changes"))
+
+@command("watch")
+def watch():
+    global watch_quit
+    print("Watching for changes to the timeout path constraint table")
+    table_name = "timeout_path_constraint"
+    last_count = count_table(table_name)
+    orig_handler = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, watch_handler)
+
+    past_time = time.time()
+    while not watch_quit:
+        cur_time = time.time()
+        if cur_time > past_time + watch_time:
+            cur_count = count_table(table_name)
+            if cur_count > last_count:
+                print(f"{cur_count - last_count} entries have been added to: {table_name}")
+            else:
+                print(f"No new entries have been added to {table_name} in the past {watch_time} seconds")
+            past_time = cur_time
+            last_count = cur_count
+    signal.signal(signal.SIGINT, orig_handler)
+    watch_quit = False
+
+def get_row_names(cursor):
+    return [d[0] for d in cursor.description]
+
+def create_dict_from_names_values(names, values):
+    ret = dict()
+    for idx, n in enumerate(names):
+        ret[n] = values[idx]
+    return ret
+
+def number_unsats_for_run(rowid):
+    count = con.cursor().execute("select count(*) from unsat_path_constraint where compile_constraint=:id", {"id": rowid})
+    return list(count)[0]
+
+@command("writeUnsats")
+def writeUnsats():
+    shutil.rmtree("unsat_constraint_folder")
+    os.mkdir("unsat_constraint_folder")
+    runs = cur.execute("select *, rowid from symcc_compile_run")
+    runs_names = get_row_names(runs)
+
+    unsat_path_constraints = con.cursor().execute("select COUNT(*) myc, compile_constraint from unsat_path_constraint group by compile_constraint order by myc DESC LIMIT 3")
+    unsat_names = get_row_names(unsat_path_constraints)
+    top_10 = []
+    for unsat in unsat_path_constraints:
+        top_10.append(create_dict_from_names_values(unsat_names, unsat))
+
+    out = {}
+
+    for unsat_entry in top_10:
+        compile_path_constraints = con.cursor().execute("select *, rowid from compile_path_constraint where rowid=:id", {"id": unsat_entry["compile_constraint"]})
+        comp_names = get_row_names(compile_path_constraints)
+        for comp in compile_path_constraints:
+            comp_dict = create_dict_from_names_values(comp_names, comp)
+            comp_rowid = comp_dict["rowid"]
+            runid = comp_dict["run_id"]
+            run = con.cursor().execute("select *, rowid from symcc_compile_run where rowid=:id", {"id": runid})
+            run_names = get_row_names(run)
+            for r in run:
+                run_dict = create_dict_from_names_values(run_names, r)
+                if run_dict["rowid"] in out:
+                    out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid] = comp_dict
+                else:
+                    out[str(run_dict["rowid"])] = run_dict
+                    out[str(run_dict["rowid"])]["compile_constraints"] = {}
+                    out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid] = comp_dict
+
+            unsat_constraints = con.cursor().execute("select * from unsat_path_constraint where compile_constraint=:id", {"id": unsat_entry["compile_constraint"]})
+
+            unsat_names = get_row_names(unsat_constraints)
+
+            max = 10
+            for idx, unsat in enumerate(unsat_constraints):
+                if idx > max:
+                    break
+                smt = unsat[1]
+                if "unsat_constraints" in out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid]:
+                    out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid]["unsat_constraints"].append(smt)
+                else:
+                    out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid]["unsat_constraints"] = []
+                    out[str(run_dict["rowid"])]["compile_constraints"][comp_rowid]["unsat_constraints"].append(smt)
+
+    with open(f"unsat_constraint_folder/unsats.json", 'w') as outfile:
+        json.dump(out, outfile)
+
+    # for run in runs:
+    #     run = list(run)
+    #     run_dict = create_dict_from_names_values(runs_names, run)
+    #     run_dict["compile_path_constraints"] = []
+    #     rowid = run_dict["rowid"]
+    #     compile_path_constraints = con.cursor().execute("select *, rowid from compile_path_constraint where run_id=:id", {"id": rowid})
+    #     comp_names = get_row_names(compile_path_constraints)
+    #     for comp in compile_path_constraints:
+    #         comp = list(comp)
+    #         comp_dict = create_dict_from_names_values(comp_names, comp)
+    #         rowid = comp_dict["rowid"]
+    #         num_unsats = number_unsats_for_run(rowid)
+    #         # unsat_path_constraints = con.cursor().execute("select *, rowid from unsat_path_constraint where compile_constraint=:id", {"id": rowid})
+    #         comp_dict["unsat_path_constraints"] = num_unsats
+    #         # unsat_names = get_row_names(unsat_path_constraints)
+    #         # for unsat in unsat_path_constraints:
+    #         #     comp_dict["unsat_path_constraints"].append(create_dict_from_names_values(unsat_names, unsat))
+    #         comp_dict.pop("rowid", None)
+    #         # if len(comp_dict["unsat_path_constraints"]) < 400:
+    #         #     comp_dict["unsat_path_constraints"] = []
+    #         run_dict["compile_path_constraints"].append(comp_dict)
+    #     run_dict.pop("rowid", None)
+    #
+    #     with open(f"unsat_constraint_folder/{run_dict['target_name'].split('/')[-1]}.json", 'w') as outfile:
+    #         json.dump(run_dict, outfile)
+
+    return
+
+    sql_command = "\
+    select * from \
+    (select compile_constraint, COUNT(*) mycount from unsat_path_constraint \
+    group by compile_constraint) as x inner join (select *, rowid from compile_path_constraint) as y \
+    on x.compile_constraint = y.rowid \
+    order by mycount"
+    cursor = cur.execute(sql_command)
+    print([d[0] for d in cursor.description])
+    for x in cursor:
+        print(x)
+    print([d[0] for d in cursor.description])
+
+@command("sql")
+def sql(*args):
+    query = " ".join(args)
+    x = cur.execute(query)
+    for y in x:
+        print(y)
+
+command_func_mapping = {
+    "h": get_help,
+    "q": quit,
+    "readTable": readTable,
+    "watch": watch,
+    "writeUnsats": writeUnsats,
+    "sql": sql
+}
+
+while(True):
+    query = input("Query: ")
+    args = query.split()
+    if args[0] in command_func_mapping:
+        if len(args) > 1:
+            ret = command_func_mapping[args[0]](*args[1:])
+        else:
+            ret = command_func_mapping[args[0]]()
+        for v in to_run_after_watch:
+            v()
+        with to_run_lock:
+            to_run_after_watch = []

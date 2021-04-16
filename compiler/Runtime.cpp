@@ -71,7 +71,7 @@ Runtime::Runtime(Module &M) {
   buildBoolXor = import(M, "_sym_build_bool_xor", ptrT, ptrT, ptrT);
   buildBoolToBits = import(M, "_sym_build_bool_to_bits", ptrT, ptrT, int8T);
   pushPathConstraint = import(M, "_sym_push_path_constraint", voidT, ptrT,
-                              IRB.getInt1Ty(), intPtrType);
+                              IRB.getInt1Ty(), intPtrType, IRB.getInt32Ty(), IRB.getInt32Ty());
 
   setParameterExpression =
       import(M, "_sym_set_parameter_expression", voidT, int8T, ptrT);

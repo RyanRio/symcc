@@ -59,4 +59,9 @@ libpcap/
 file/
 z3-builds/
 qsym-build-32
+qsym-build-64
 z3-build-32
+z3-build-64
+symcc_build/
+path_constraints.db
+unsat_constraint_folder/

@@ -24,6 +24,8 @@
 #include "Symbolizer.h"
 #include "Analyzer.h"
 
+#include "string"
+
 using namespace llvm;
 
 #ifndef NDEBUG
@@ -42,7 +44,10 @@ bool SymbolizePass::doInitialization(Module &M)
 {
   // llvm::errs() << "Beginning pass on module: " << M << "\n";
 
-  DEBUG(errs() << "Symbolizer module init\n");
+  DEBUG(errs() << "Symbolizer module init" << M.getModuleIdentifier() << "\n");
+
+  const std::string mID = M.getModuleIdentifier();
+  Analyzer::instance().startUp(mID);
 
   // Redirect calls to external functions to the corresponding wrappers and
   // rename internal functions.
@@ -111,4 +116,3 @@ bool SymbolizePass::runOnFunction(Function &F)
 //   // Analyzer::instance().Finalize(M);
 //   return false;
 // }
-

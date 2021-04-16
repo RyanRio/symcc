@@ -205,7 +205,7 @@ void Symbolizer::shortCircuitExpressionUses()
           symbolicComputation.lastInstruction,
           symbolicComputation.lastInstruction->getParent());
     }
-    // c.complete();
+    // Analyzer::instance().push_path_constraint(StringRef(symbolicComputation.firstInstruction->getOpcodeName()));
   }
 }
 
@@ -427,11 +427,19 @@ void Symbolizer::visitSelectInst(SelectInst &I)
   // expression over from the chosen argument.
 
   IRBuilder<> IRB(&I);
+  std::string str;
+  llvm::raw_string_ostream output(str);
+  output << "constraint: " << I;
+  std::pair<int, int> constraint_pair = Analyzer::instance().push_path_constraint(StringRef(output.str()));
+
   auto runtimeCall = buildRuntimeCall(IRB, runtime.pushPathConstraint,
                                       {{I.getCondition(), true},
                                        {I.getCondition(), false},
-                                       {getTargetPreferredInt(&I), false}});
+                                       {getTargetPreferredInt(&I), false},
+                                       {IRB.getInt32(constraint_pair.first), false},
+                                       {IRB.getInt32(constraint_pair.second), false}});
   registerSymbolicComputation(runtimeCall);
+
 }
 
 void Symbolizer::visitCmpInst(CmpInst &I)
@@ -474,11 +482,20 @@ void Symbolizer::visitBranchInst(BranchInst &I)
 
   // llvm::outs() << getTargetPreferredInt(&I) << I << "\n";
   IRBuilder<> IRB(&I);
+
+  std::string str;
+  llvm::raw_string_ostream output(str);
+  output << "constraint: " << I;
+  std::pair<int, int> constraint_pair = Analyzer::instance().push_path_constraint(StringRef(output.str()));
+
   auto runtimeCall = buildRuntimeCall(IRB, runtime.pushPathConstraint,
                                       {{I.getCondition(), true},
                                        {I.getCondition(), false},
-                                       {getTargetPreferredInt(&I), false}});
+                                       {getTargetPreferredInt(&I), false},
+                                       {IRB.getInt32(constraint_pair.first), false},
+                                       {IRB.getInt32(constraint_pair.second), false}});
   registerSymbolicComputation(runtimeCall);
+
 }
 
 void Symbolizer::visitIndirectBrInst(IndirectBrInst &I)
@@ -904,8 +921,14 @@ void Symbolizer::visitSwitchInst(SwitchInst &I)
     auto *caseConstraint = IRB.CreateCall(
         runtime.comparisonHandlers[CmpInst::ICMP_EQ],
         {conditionExpr, createValueExpression(caseHandle.getCaseValue(), IRB)});
+
+    std::string str;
+    llvm::raw_string_ostream output(str);
+    output << "constraint: " << *caseConstraint;
+    std::pair<int, int> constraint_pair = Analyzer::instance().push_path_constraint(StringRef(output.str()));
     IRB.CreateCall(runtime.pushPathConstraint,
-                   {caseConstraint, caseTaken, getTargetPreferredInt(&I)});
+                   {caseConstraint, caseTaken, getTargetPreferredInt(&I), IRB.getInt32(constraint_pair.first), IRB.getInt32(constraint_pair.second)});
+
   }
 }
 
@@ -1042,10 +1065,16 @@ void Symbolizer::tryAlternative(IRBuilder<> &IRB, Value *V)
     auto *destAssertion =
         IRB.CreateCall(runtime.comparisonHandlers[CmpInst::ICMP_EQ],
                        {destExpr, concreteDestExpr});
+
+   std::string str;
+   llvm::raw_string_ostream output(str);
+   output << "constraint: " << *V;
+   std::pair<int, int> constraint_pair = Analyzer::instance().push_path_constraint(StringRef(output.str()));
     auto *pushAssertion = IRB.CreateCall(
         runtime.pushPathConstraint,
-        {destAssertion, IRB.getInt1(true), getTargetPreferredInt(V)});
+        {destAssertion, IRB.getInt1(true), getTargetPreferredInt(V), IRB.getInt32(constraint_pair.first), IRB.getInt32(constraint_pair.second)});
     registerSymbolicComputation(SymbolicComputation(
         concreteDestExpr, pushAssertion, {{V, 0, destAssertion}}));
+
   }
 }

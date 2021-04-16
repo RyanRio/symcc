@@ -174,7 +174,7 @@ void _sym_initialize(void)
   {
     g_data_log = fopen(g_config.dataLogFile.c_str(), "a");
   }
-  
+
 }
 
 Z3_ast _sym_build_integer(uint64_t value, uint8_t bits)
@@ -474,11 +474,12 @@ Z3_ast _sym_build_bool_to_bits(Z3_ast expr, uint8_t bits)
 // #define dataprintf(format, ...) if(g_data_log!=NULL) fprintf (g_data_log, format __VA_OPT__(,) __VA_ARGS__)
 
 void _sym_push_path_constraint(Z3_ast constraint, int taken,
-                               uintptr_t site_id [[maybe_unused]])
+                               uintptr_t site_id [[maybe_unused]], int program_run, int constraint_index)
 {
   if (constraint == nullptr)
     return;
 
+  printf("looking at constraint: %d on program run:%d\n", constraint_index, program_run);
   // dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
 
   // dataprintf("has id: %ld\n", site_id);

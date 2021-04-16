@@ -96,6 +96,8 @@ if (NOT LLVM_ENABLE_RTTI)
   set_target_properties(Symbolize PROPERTIES COMPILE_FLAGS "-fno-rtti")
 endif()
 
+target_link_libraries(Symbolize sqlite3)
+
 find_program(CLANG_BINARY "clang"
   HINTS ${LLVM_TOOLS_BINARY_DIR}
   DOC "The clang binary to use in the symcc wrapper script.")

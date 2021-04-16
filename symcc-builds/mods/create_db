@@ -1,0 +1,104 @@
+#!/usr/bin/python3
+
+import sqlite3
+con = sqlite3.connect('path_constraints.db')
+
+cur = con.cursor()
+
+tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint", "timeout_path_constraint"]
+
+
+def drop_table(table_name):
+    cur.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+def drop_and_restore_tables():
+    for t in tables:
+        drop_table(t)
+
+    # set up archs
+    cur.execute(
+        '''
+        CREATE TABLE archs (
+            arch TEXT PRIMARY KEY
+        ) WITHOUT ROWID
+        '''
+    )
+    cur.executemany("INSERT INTO archs VALUES (?)", [("amd64",), ("i386",)])
+
+    # set up runtimes
+    cur.execute(
+        '''
+        CREATE TABLE runtimes (
+            runtime TEXT PRIMARY KEY
+        ) WITHOUT ROWID
+        '''
+    )
+    cur.executemany("INSERT INTO runtimes VALUES (?)", [("z3",), ("qsym",)])
+
+    '''
+    create run tables. Tables are:
+    symcc_compile_run -> denoting a compilation of a target binary with the symcc or sym++ compiler
+    '''
+    cur.execute(
+        '''
+        CREATE TABLE symcc_compile_run (
+            target_name TEXT NOT NULL,
+            run_arch TEXT NOT NULL,
+            run_runtime TEXT NOT NULL,
+            FOREIGN KEY (run_arch) REFERENCES archs(arch) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY (run_runtime) REFERENCES runtimes(runtime) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    # create path constraints tables
+    cur.execute(
+        '''
+        CREATE TABLE compile_path_constraint
+        (
+            path_constraint TEXT NOT NULL,
+            run_id INTEGER NOT NULL,
+            constraint_index INTEGER NOT NULL,
+            FOREIGN KEY (run_id) REFERENCES symcc_compile_run(rowid) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    cur.execute(
+        '''
+        CREATE TABLE runtime_path_constraint
+        (
+            compile_constraint INT NOT NULL,
+            constraint_smt TEXT NOT NULL,
+            FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    cur.execute(
+        '''
+        CREATE TABLE unsat_path_constraint
+        (
+            compile_constraint INT NOT NULL,
+            constraint_smt TEXT NOT NULL,
+            FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    cur.execute(
+        '''
+        CREATE TABLE timeout_path_constraint
+        (
+            compile_constraint INT NOT NULL,
+            constraint_smt TEXT NOT NULL,
+            FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    con.commit()
+
+drop_and_restore_tables()
+
+con.close()

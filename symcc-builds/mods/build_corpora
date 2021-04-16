@@ -52,13 +52,16 @@ executable_mapping = {
 # define corpora vars to use if use-corpora is set
 top_copora_dir = os.path.join(top_dir, "corpora", "corpora-src")
 corpora_mapping = {
-    "tinyexpr": "11/tinyexprB2/src"
+    "tinyexpr": "11/tinyexprB2/src",
+    "file": "13/fileS4/src"
 }
 corpora_makefile_mapping = {
-    "tinyexpr": ""
+    "tinyexpr": "",
+    "file": ""
 }
 corpora_executable_mapping = {
-    "tinyexpr": "src/math"
+    "tinyexpr": "src/math",
+    "file": "src/file"
 }
 
 # get the runtime directory given a certain architecture
@@ -81,18 +84,17 @@ def build(runtime):
     programsDir = programs32 if runtime == "32" else programs64
     programsBuildDir = programs32_build if runtime == "32" else programs64_build
 
-    program_list = os.listdir(programsDir)
-    program_list = filter(lambda p: p in supported_programs, program_list)
-
-    for p in program_list:
-        # if use corpora is not set or the program is not supported by the corpora
-        if not args.use_corpora or p not in corpora_mapping:
+    if not args.use_corpora:
+        program_list = os.listdir(programsDir)
+        program_list = filter(lambda p: p in supported_programs, program_list)
+        for p in program_list:
             makefile = os.path.join(programsDir, p, makefile_mapping[p])
             subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
             subprocess.run([f"make", "-C", makefile], env=os.environ)
             shutil.copyfile(os.path.join(programsDir, p, executable_mapping[p]), os.path.join(programsBuildDir, p))
             subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
-        else:
+    else:
+        for p in corpora_mapping.keys():
             makefile = os.path.join(top_copora_dir, corpora_mapping[p])
             subprocess.run([f"make", "clean", "-C", makefile], env=os.environ)
             subprocess.run([f"make", "-C", makefile], env=os.environ)

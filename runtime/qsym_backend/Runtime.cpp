@@ -18,6 +18,7 @@
 
 #include "Runtime.h"
 #include "GarbageCollection.h"
+#include "PathConstraintDB.h"
 
 // C++
 #if __has_include(<filesystem>)
@@ -62,6 +63,9 @@
 #include <Config.h>
 #include <LibcWrappers.h>
 #include <Shadow.h>
+
+// database
+// #include "Analyzer.h"
 
 namespace qsym {
 
@@ -116,8 +120,10 @@ namespace fs = std::experimental::filesystem;
 #endif
 
 void _sym_initialize(void) {
-  if (g_initialized.test_and_set())
+  if (g_initialized.test_and_set()) {
+    // Analyzer::instance().startUp(false);
     return;
+  }
 
   loadConfig();
   initLibcWrappers();
@@ -176,6 +182,9 @@ void _sym_initialize(void) {
       new Solver(inputFileName, g_config.outputDir, g_config.aflCoverageMap);
   g_expr_builder = g_config.pruning ? PruneExprBuilder::create()
                                     : SymbolicExprBuilder::create();
+
+  // start up Analyzer
+  // Analyzer::instance().startUp(true);
 }
 
 SymExpr _sym_build_integer(uint64_t value, uint8_t bits) {
@@ -282,11 +291,14 @@ SymExpr _sym_build_trunc(SymExpr expr, uint8_t bits) {
 }
 
 void _sym_push_path_constraint(SymExpr constraint, int taken,
-                               uintptr_t site_id) {
+                               uintptr_t site_id, int program_run, int constraint_index) {
   if (constraint == nullptr)
     return;
 
   g_solver->addJcc(allocatedExpressions.at(constraint), taken != 0, site_id);
+  g_solver->addDBConstraintValues(program_run, constraint_index);
+  // z3::solver s_ = g_solver->get_solver();
+  // PathConstraintDB::instance().push_path_constraint(s_.to_smt2(), program_run, constraint_index);
 }
 
 SymExpr _sym_get_input_byte(size_t offset) {
@@ -383,7 +395,8 @@ bool _sym_feasible(SymExpr expr) {
   expr->simplify();
 
   g_solver->push();
-  g_solver->add(expr->toZ3Expr());
+  z3::expr z3Expr = expr->toZ3Expr();
+  g_solver->add(z3Expr);
   bool feasible = (g_solver->check() == z3::sat);
   g_solver->pop();
 
