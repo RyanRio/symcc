@@ -11,7 +11,7 @@ _environ = os.environ.copy()
 
 # parse args
 parser = argparse.ArgumentParser()
-parser.add_argument("--f", nargs=1, dest="file", help="run with given input'")
+parser.add_argument("files", nargs='*', help="run with given inputs")
 parser.add_argument("-c", dest="clean", action='store_true', help="clean directory structure")
 parser.add_argument("--arch", dest="arch", choices=["32", "64"], default="BOTH", help="optionally build just 32 bit or 64 bit")
 parser.add_argument("--runtime", dest="runtime", choices=["z3", "qsym"], default="qsym", help="build with the z3 runtime backend or the qsym runtime backend")
@@ -23,12 +23,13 @@ runtime = args.runtime
 
 # set up directories
 top_dir = os.getcwd()
+custom_programs_dir = os.path.join(top_dir, "custom_programs")
+result_dir = os.path.join(custom_programs_dir, "results")
+
 programs32 = os.path.join(top_dir, "programs32")
 programs64 = os.path.join(top_dir, "programs64")
 programs32_build = os.path.join(top_dir, "programs32_build")
 programs64_build = os.path.join(top_dir, "programs64_build")
-
-os.environ["RYANRIO_COMPILE_LOG_FILE"] = f"compile_log"
 
 if args.clean:
     shutil.rmtree(programs32_build)
@@ -38,11 +39,17 @@ if args.clean:
     exit(0)
 
 # set up builds
-supported_programs = ["simple.c"]
+supported_programs = ["simple.c", "hash.c"]
 
 # how to run the executable
 executable_mapping = {
-    "simple.c": "simple"
+    "simple.c": "simple",
+    "hash.c": "hash"
+}
+
+input_file_mapping = {
+    "hash": "hash_inputs",
+    "simple": "simple_inputs"
 }
 
 # get the runtime directory given a certain architecture
@@ -50,36 +57,51 @@ def getRuntimeDir(arch):
     parent = os.path.dirname(top_dir)
     return os.path.join(parent, f"{runtime}-build-{arch}")
 
-def build_input(executable):
-    if args.file:
-        return ['echo', args.file[0], '|', './' + executable]
+def build_inputs(executable):
+    if executable in input_file_mapping:
+        input_dir = os.path.join(top_dir, "custom_programs", input_file_mapping[executable])
+        return [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
     else:
-        return ['echo', "aaaa", '|', './' + executable]
+        print("no input files exist for executable")
+        exit(1)
+
+def build_cmd(filename, executable):
+    with open(filename, "r") as f:
+        line = f.readline()
+        return ' '.join(["echo", line[:-1], "|", f"./{executable}", str(len(line) - 1)])
+    # return ' '.join([f"./{executable}", filename])
 
 def build(runtime):
     #symcc build
     runtime_dir = getRuntimeDir(runtime)
     CC = os.path.join(runtime_dir, "symcc")
     CXX = os.path.join(runtime_dir, "sym++")
-    CFLAGS = "-m32 -w" if runtime == "32" else ""
+    CFLAGS = "-m32 -w -g" if runtime == "32" else "-g"
     os.environ["CC"] = CC
     os.environ["CXX"] = CXX
     os.environ["CCFLAGS"] = CFLAGS
     os.environ["CFLAGS"] = CFLAGS
     os.environ["SYMCC_NO_SYMBOLIC_INPUT"] = "1"
+    os.environ["SYMCC_LOG_FILE"] = os.path.join(custom_programs_dir, "log.txt")
 
     print(CC)
 
+    program_list = filter(lambda x: x in supported_programs, args.files)
+
     # programs
-    for program in supported_programs:
-        BUILD_OPTIONS = [CC, f"custom_programs/{program}", "-o", executable_mapping[program]]
+    for program in program_list:
+        base_executable = executable_mapping[program]
+        executable = f"custom_programs/{base_executable}"
+        BUILD_OPTIONS = [CC, f"custom_programs/{program}", "-o", executable]
         result = subprocess.run(BUILD_OPTIONS, env=os.environ)
 
         if result.returncode == 0:
-            cmd = build_input(executable_mapping[program])
-            print(cmd)
+            inputs = build_inputs(base_executable)
+            print(inputs)
             os.environ["SYMCC_NO_SYMBOLIC_INPUT"] = "0"
-            subprocess.run(' '.join(cmd), shell=True, env=os.environ)
+            os.environ["SYMCC_OUTPUT_DIR"] = result_dir
+            for inp in inputs:
+                subprocess.run(build_cmd(inp, executable), shell=True, env=os.environ)
         else:
             exit(result.returncode)
 

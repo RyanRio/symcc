@@ -13,7 +13,7 @@ con = sqlite3.connect('path_constraints.db')
 
 cur = con.cursor()
 
-tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint"]
+tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint", "timeout_path_constraint"]
 
 commands = {
     "q": ("Quit the db reader", {}, {}),

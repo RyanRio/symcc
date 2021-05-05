@@ -70,6 +70,7 @@ def drop_and_restore_tables():
         (
             compile_constraint INT NOT NULL,
             constraint_smt TEXT NOT NULL,
+            negated INTEGER NOT NULL,
             FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
         )
         '''
@@ -81,6 +82,7 @@ def drop_and_restore_tables():
         (
             compile_constraint INT NOT NULL,
             constraint_smt TEXT NOT NULL,
+            negated INTEGER NOT NULL,
             FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
         )
         '''
@@ -92,6 +94,7 @@ def drop_and_restore_tables():
         (
             compile_constraint INT NOT NULL,
             constraint_smt TEXT NOT NULL,
+            negated INTEGER NOT NULL,
             FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
         )
         '''

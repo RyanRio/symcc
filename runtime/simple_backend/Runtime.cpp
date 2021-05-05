@@ -31,6 +31,8 @@
 #include "LibcWrappers.h"
 #include "Shadow.h"
 
+#include "PathConstraintDB.h"
+
 #ifndef NDEBUG
 // Helper to print pointers properly.
 #define P(ptr) reinterpret_cast<void *>(ptr)
@@ -479,7 +481,6 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   if (constraint == nullptr)
     return;
 
-  printf("looking at constraint: %d on program run:%d\n", constraint_index, program_run);
   // dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
 
   // dataprintf("has id: %ld\n", site_id);
@@ -535,10 +536,15 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
     //         Z3_model_to_string(g_context, model));
     Z3_model_dec_ref(g_context, model);
   }
-  else
+  else if (feasible == Z3_L_FALSE)
   {
     fprintf(g_log, "Can't find a diverging input at this point\n");
-    // dataprintf("Can't find a diverging input at this point\n");
+    PathConstraintDB::instance().push_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, 1);
+  }
+  else if (feasible == Z3_L_UNDEF)
+  {
+    fprintf(g_log, "Undef input\n");
+    PathConstraintDB::instance().push_timeout_constraint(Z3_solver_get_reason_unknown(g_context, g_solver), program_run, constraint_index, 1);
   }
   fflush(g_log);
   fflush(g_data_log);
@@ -549,7 +555,21 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   Z3_ast newConstraint = (taken ? constraint : not_constraint);
   Z3_inc_ref(g_context, newConstraint);
   Z3_solver_assert(g_context, g_solver, newConstraint);
-  assert((Z3_solver_check(g_context, g_solver) == Z3_L_TRUE) &&
+
+  Z3_lbool actualConstraintFeasible = Z3_solver_check(g_context, g_solver);
+  int negated = taken ? 0 : 1;
+  if (actualConstraintFeasible == Z3_L_TRUE)
+  {
+    // log constraint
+  }
+  else if (actualConstraintFeasible == Z3_L_FALSE)
+  {
+    PathConstraintDB::instance().push_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, negated);
+  }
+  else {
+    PathConstraintDB::instance().push_timeout_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, negated);
+  }
+  assert((actualConstraintFeasible == Z3_L_TRUE) &&
          "Asserting infeasible path constraint");
   Z3_dec_ref(g_context, constraint);
   Z3_dec_ref(g_context, not_constraint);

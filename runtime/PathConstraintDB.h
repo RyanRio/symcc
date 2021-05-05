@@ -6,15 +6,6 @@
 #include "sstream"
 #include "map"
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringMap.h>
-#include <llvm/IR/InstIterator.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Transforms/Utils/ModuleUtils.h>
-#include <llvm/Support/Casting.h>
-#include <llvm/Support/FileSystem.h>
-
 #include <sqlite3.h>
 
 class PathConstraintDB
@@ -31,11 +22,11 @@ public:
 
     // constraint functions
     // pushes a path constraint, returning the status
-    int push_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index);
+    int push_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
     // push an unsat path constraint, return status
-    int push_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index);
+    int push_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
     // push a timed out path constraint, return status
-    int push_timeout_constraint(const std::string& constraint_smt, int program_run, int constraint_index);
+    int push_timeout_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
 
 private:
     // database
