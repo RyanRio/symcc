@@ -5,7 +5,8 @@ con = sqlite3.connect('path_constraints.db')
 
 cur = con.cursor()
 
-tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint", "timeout_path_constraint"]
+tables = ["archs", "runtimes", "symcc_compile_run", "compile_path_constraint", "runtime_path_constraint", "unsat_path_constraint", "error_path_constraint", \
+            "libc_path_constraint", "libc_unsat_path_constraint", "libc_error_path_constraint"]
 
 
 def drop_table(table_name):
@@ -90,12 +91,49 @@ def drop_and_restore_tables():
 
     cur.execute(
         '''
-        CREATE TABLE timeout_path_constraint
+        CREATE TABLE error_path_constraint
         (
             compile_constraint INT NOT NULL,
             constraint_smt TEXT NOT NULL,
+            reason INTEGER NOT NULL,
             negated INTEGER NOT NULL,
             FOREIGN KEY (compile_constraint) REFERENCES compile_path_constraint(rowid) ON DELETE CASCADE ON UPDATE CASCADE
+        )
+        '''
+    )
+
+    # libc versions
+
+    cur.execute(
+        '''
+        CREATE TABLE libc_path_constraint
+        (
+            constraint_smt TEXT NOT NULL,
+            func TEXT NOT NULL,
+            negated INTEGER NOT NULL
+        )
+        '''
+    )
+
+    cur.execute(
+        '''
+        CREATE TABLE libc_unsat_path_constraint
+        (
+            constraint_smt TEXT NOT NULL,
+            func TEXT NOT NULL,
+            negated INTEGER NOT NULL
+        )
+        '''
+    )
+
+    cur.execute(
+        '''
+        CREATE TABLE libc_error_path_constraint
+        (
+            constraint_smt TEXT NOT NULL,
+            func TEXT NOT NULL,
+            reason INTEGER NOT NULL,
+            negated INTEGER NOT NULL
         )
         '''
     )

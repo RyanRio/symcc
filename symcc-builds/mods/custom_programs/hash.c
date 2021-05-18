@@ -1,8 +1,9 @@
-#include <stdint.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
+#include <string.h>
+#include <inttypes.h>
 
 #define CHUNK_SIZE 64
 #define TOTAL_LEN_LEN 8
@@ -274,6 +275,10 @@ void calc_sha_256(uint8_t hash[32], const void * input, size_t len)
     hash[31] = (uint8_t) h7;
 }
 
+static const uint8_t SOLUTION[] = {
+	186, 120, 22, 191, 143, 1, 207, 234, 65, 65, 64, 222, 93, 174, 34, 35, 176, 3, 97, 163, 150, 23, 122, 156, 180, 16, 255, 97, 242, 0, 21, 173
+};
+
 struct string_vector {
 	const char *input;
 	const char *output;
@@ -290,25 +295,18 @@ static void hash_to_string(char string[65], const uint8_t hash[32])
 {
 	size_t i;
 	for (i = 0; i < 32; i++) {
-		string += sprintf(string, "%02x", hash[i]);
+		string += sprintf(string, "%02x", hash[i]); // write unsigned hexadecimal int
 	}
 }
 
-static int string_test(const char input[], const char output[])
+static void print_hash_bytes(const uint8_t hash[32])
 {
-	uint8_t hash[32];
-	char hash_string[65];
-	calc_sha_256(hash, input, strlen(input));
-	hash_to_string(hash_string, hash);
-	printf("input: %s\n", input);
-	printf("hash : %s\n", hash_string);
-	if (strcmp(output, hash_string)) {
-		printf("FAILURE!\n\n");
-		return 1;
-	} else {
-		printf("SUCCESS!\n\n");
-		return 0;
-	}
+  size_t i;
+  for (i = 0; i < 32; i++)
+  {
+    printf("%" PRIu8 ", ", hash[i]);
+  }
+  printf("\n");
 }
 
 int main(int argc, char **argv) {
@@ -326,23 +324,21 @@ int main(int argc, char **argv) {
 
   int i;
   for (i = 0; i < (sizeof STRING_VECTORS / sizeof (struct string_vector)); i++) {
-    uint8_t hash[32];
-  	char hash_string[65];
+    uint8_t* hash = malloc(32 * sizeof(uint8_t));
     calc_sha_256(hash, buffer, strlen(buffer));
-    hash_to_string(hash_string, hash);
+    print_hash_bytes(hash);
     const struct string_vector *vector = &STRING_VECTORS[i];
-    if (strcmp(vector->output, hash_string)) {
+  	char hash_string[65];
+  	hash_to_string(hash_string, hash);
+  	printf("calculated output : %s\n", hash_string);
+    printf("expected output: %s\n", vector->output);
+  	if (memcmp(SOLUTION, hash, 32)) {
   		printf("FAILURE!\n\n");
   		return 1;
   	} else {
   		printf("SUCCESS!\n\n");
   		return 0;
   	}
-    // const struct string_vector *vector = &STRING_VECTORS[i];
-    // if (string_test(buffer, vector->output))
-    // {
-    //   return -1;
-    // }
   }
 
   if (buffer) {

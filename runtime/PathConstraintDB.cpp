@@ -1,13 +1,10 @@
 #include "PathConstraintDB.h"
 
-static int insert_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated, const char* constraint_table)
+static int insert_path_constraint(sqlite3 *db, const char* constraint_table, const std::stringstream& value_ss)
 {
   std::stringstream ss;
   ss << "INSERT INTO " << constraint_table << " VALUES("
-     << "" << compile_constraint << ","
-     << "'" << constraint_smt << "',"
-     << "" << negated
-     << ");";
+     << value_ss.str() << ");";
 
   int rc;
   char *err_msg;
@@ -17,20 +14,6 @@ static int insert_path_constraint(sqlite3 *db, const char *constraint_smt, const
       printf("exec error: %s\n", err_msg);
   }
   return rc;
-}
-static int insert_unsat_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated)
-{
-  return insert_path_constraint(db, constraint_smt, compile_constraint, negated, "unsat_path_constraint");
-}
-
-static int insert_timeout_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated)
-{
-  return insert_path_constraint(db, constraint_smt, compile_constraint, negated, "timeout_path_constraint");
-}
-
-static int insert_runtime_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated)
-{
-  return insert_path_constraint(db, constraint_smt, compile_constraint, negated, "runtime_path_constraint");
 }
 
 // callback for getting the compile constraint for a particular run
@@ -77,7 +60,38 @@ int PathConstraintDB::get_compile_path_constraint(int run_id, int constraint_ind
     }
 }
 
-int PathConstraintDB::push_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated)
+// unsat path constraint helper
+static int insert_unsat_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated)
+{
+  std::stringstream ss;
+  ss << compile_constraint << ","
+  << "'" << constraint_smt << "',"
+  << "" << negated;
+  return insert_path_constraint(db, "unsat_path_constraint", ss);
+}
+
+// timeout path constraint helper
+static int insert_error_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int reason, const int negated)
+{
+  std::stringstream ss;
+  ss << compile_constraint << ","
+  << "'" << constraint_smt << "',"
+  << reason << ","
+  << negated;
+  return insert_path_constraint(db, "error_path_constraint", ss);
+}
+
+// runtime path constraint helper
+static int insert_runtime_path_constraint(sqlite3 *db, const char *constraint_smt, const int compile_constraint, const int negated)
+{
+  std::stringstream ss;
+  ss << compile_constraint << ","
+  << "'" << constraint_smt << "',"
+  << "" << negated;
+  return insert_path_constraint(db, "runtime_path_constraint", ss);
+}
+
+int PathConstraintDB::push_instrumented_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated)
 {
     if (program_run != -1) {
       int compile_constraint = get_compile_path_constraint(program_run, constraint_index);
@@ -90,7 +104,7 @@ int PathConstraintDB::push_path_constraint(const std::string& constraint_smt, in
     return 1;
 }
 
-int PathConstraintDB::push_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated)
+int PathConstraintDB::push_instrumented_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated)
 {
     if (program_run != -1) {
       int compile_constraint = get_compile_path_constraint(program_run, constraint_index);
@@ -103,18 +117,48 @@ int PathConstraintDB::push_unsat_constraint(const std::string& constraint_smt, i
     return 1;
 }
 
-
-int PathConstraintDB::push_timeout_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated)
+int PathConstraintDB::push_instrumented_error_constraint(const std::string& constraint_smt, int program_run, int constraint_index, ConstraintErrorReason reason, int negated)
 {
     if (program_run != -1) {
       int compile_constraint = get_compile_path_constraint(program_run, constraint_index);
       if (compile_constraint >= 0) {
-        int rc = insert_timeout_path_constraint(m_db, constraint_smt.c_str(), compile_constraint, negated);
+        int rc = insert_error_path_constraint(m_db, constraint_smt.c_str(), compile_constraint, reason, negated);
         return rc;
       }
     }
 
     return 1;
+}
+
+/**************** libc versions ****************/
+
+int PathConstraintDB::push_libc_path_constraint(const std::string& constraint_smt, const std::string& func, int negated)
+{
+  std::stringstream ss;
+  ss << "'" << constraint_smt << "',"
+  << "'" << func << "',"
+  << negated;
+  return insert_path_constraint(m_db, "libc_path_constraint", ss);
+}
+
+int PathConstraintDB::push_libc_unsat_constraint(const std::string& constraint_smt, const std::string& func, int negated)
+{
+  std::stringstream ss;
+  ss << "'" << constraint_smt << "',"
+  << "'" << func << "',"
+  << negated;
+  return insert_path_constraint(m_db, "libc_unsat_path_constraint", ss);
+}
+
+
+int PathConstraintDB::push_libc_error_constraint(const std::string& constraint_smt, const std::string& func, ConstraintErrorReason reason, int negated)
+{
+  std::stringstream ss;
+  ss << "'" << constraint_smt << "',"
+  << "'" << func << "',"
+  << reason << ","
+  << negated;
+  return insert_path_constraint(m_db, "libc_error_path_constraint", ss);
 }
 
 PathConstraintDB &PathConstraintDB::instance()

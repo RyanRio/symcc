@@ -141,6 +141,7 @@ SymExpr _sym_get_return_expression(void);
  */
 void _sym_push_path_constraint(SymExpr constraint, int taken,
                                uintptr_t site_id, int program_run, int constraint_index);
+void _sym_push_libc_path_constraint(SymExpr constraint, int taken, uintptr_t site_id, const char func[]);
 SymExpr _sym_get_input_byte(size_t offset);
 
 /*

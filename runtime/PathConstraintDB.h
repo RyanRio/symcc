@@ -8,6 +8,12 @@
 
 #include <sqlite3.h>
 
+enum ConstraintErrorReason {
+  TIMEOUT = 0,
+  CANCELED,
+  NONE
+};
+
 class PathConstraintDB
 {
 public:
@@ -22,11 +28,17 @@ public:
 
     // constraint functions
     // pushes a path constraint, returning the status
-    int push_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
+    int push_instrumented_path_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
     // push an unsat path constraint, return status
-    int push_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
+    int push_instrumented_unsat_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
     // push a timed out path constraint, return status
-    int push_timeout_constraint(const std::string& constraint_smt, int program_run, int constraint_index, int negated);
+    int push_instrumented_error_constraint(const std::string& constraint_smt, int program_run, int constraint_index, ConstraintErrorReason reason, int negated);
+    // libc version of normal path constraint
+    int push_libc_path_constraint(const std::string& constraint_smt, const std::string& func, int negated);
+    // libc version of normal unsat constraint
+    int push_libc_unsat_constraint(const std::string& constraint_smt, const std::string& func, int negated);
+    // libc version of normal timeout constraint
+    int push_libc_error_constraint(const std::string& constraint_smt, const std::string& func, ConstraintErrorReason reason, int negated);
 
 private:
     // database

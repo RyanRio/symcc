@@ -21,6 +21,7 @@ commands = {
     "readTable": ("Read all the rows from a given table", {"tableName": "The table to read from"}, {"limit": "the number of args to read, default no limit"}),
     "watch": ("Watch for changes to the unsat_path_constraint table", {}, {}),
     "writeUnsats": ("write all the unsat path constraints to a file", {}, {}),
+    "writeTimeouts": ("write all the timeout path constraints to a file", {}, {}),
     "sql": ("forward an sql query to the sqlite db", {"query": "The query to use"}, {})
 }
 
@@ -228,6 +229,20 @@ def writeUnsats():
         print(x)
     print([d[0] for d in cursor.description])
 
+@command("writeTimeouts")
+def writeTimeouts():
+    out = []
+    limit = 5
+    limit_str = f" LIMIT {limit}"
+    cursor = cur.execute(f"SELECT * FROM libc_error_path_constraint{limit_str}")
+    names = get_row_names(cursor)
+    first = cursor.fetchone()
+    with open(f"timeouts.json", 'w') as outfile:
+        for x in first:
+            outfile.write(str(x))
+            outfile.write("\n")
+
+
 @command("sql")
 def sql(*args):
     query = " ".join(args)
@@ -241,6 +256,7 @@ command_func_mapping = {
     "readTable": readTable,
     "watch": watch,
     "writeUnsats": writeUnsats,
+    "writeTimeouts": writeTimeouts,
     "sql": sql
 }
 

@@ -44,10 +44,10 @@ uint64_t inputOffset = 0;
 template <typename V, typename F>
 void tryAlternative(V value, SymExpr valueExpr, F caller) {
   if (valueExpr) {
-    _sym_push_path_constraint(
+    _sym_push_libc_path_constraint(
         _sym_build_equal(valueExpr,
                          _sym_build_integer(value, sizeof(value) * 8)),
-        true, reinterpret_cast<uintptr_t>(caller), 0, 0);
+        true, reinterpret_cast<uintptr_t>(caller), "alternative");
   }
 }
 
@@ -135,11 +135,13 @@ ssize_t SYM(read)(int fildes, void *buf, size_t nbyte) {
     return result;
 
   if (fildes == inputFileDescriptor) {
+    printf("reading symbolic input\n");
     // Reading symbolic input.
     ReadWriteShadow shadow(buf, result);
     std::generate(shadow.begin(), shadow.end(),
                   []() { return _sym_get_input_byte(inputOffset++); });
   } else if (!isConcrete(buf, result)) {
+    printf("reading symbolic input since buffer is symbolic\n");
     ReadWriteShadow shadow(buf, result);
     std::fill(shadow.begin(), shadow.end(), nullptr);
   }
@@ -454,11 +456,11 @@ const char *SYM(strchr)(const char *s, int c) {
   auto shadow = ReadOnlyShadow(s, length);
   auto shadowIt = shadow.begin();
   for (size_t i = 0; i < length; i++) {
-    _sym_push_path_constraint(
+    _sym_push_libc_path_constraint(
         _sym_build_not_equal(
             (*shadowIt != nullptr) ? *shadowIt : _sym_build_integer(s[i], 8),
             cExpr),
-        /*taken*/ 1, reinterpret_cast<uintptr_t>(SYM(strchr)), 0, 0);
+        /*taken*/ 1, reinterpret_cast<uintptr_t>(SYM(strchr)), "strchr");
     ++shadowIt;
   }
 
@@ -473,8 +475,19 @@ int SYM(memcmp)(const void *a, const void *b, size_t n) {
   auto result = memcmp(a, b, n);
   _sym_set_return_expression(nullptr);
 
-  if (isConcrete(a, n) && isConcrete(b, n))
+  bool aConcrete = isConcrete(a, n);
+  bool bConcrete = isConcrete(b, n);
+
+  if (aConcrete && bConcrete)
+  {
+    printf("memcmp inputs are concrete\n");
     return result;
+  }
+  else
+  {
+    printf("compiling memcmp with symbolic input(s), %d, %d\n", aConcrete, bConcrete);
+  }
+
 
   auto aShadowIt = ReadOnlyShadow(a, n).begin_non_null();
   auto bShadowIt = ReadOnlyShadow(b, n).begin_non_null();
@@ -486,8 +499,10 @@ int SYM(memcmp)(const void *a, const void *b, size_t n) {
         _sym_build_bool_and(allEqual, _sym_build_equal(*aShadowIt, *bShadowIt));
   }
 
-  _sym_push_path_constraint(allEqual, result == 0,
-                            reinterpret_cast<uintptr_t>(SYM(memcmp)), 0, 0);
+  printf("about to call push path constraint\n");
+
+  _sym_push_libc_path_constraint(allEqual, result == 0,
+                            reinterpret_cast<uintptr_t>(SYM(memcmp)), "memcmp");
   return result;
 }
 

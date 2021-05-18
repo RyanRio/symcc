@@ -135,7 +135,7 @@ void _sym_initialize(void)
 
   cfg = Z3_mk_config();
   Z3_set_param_value(cfg, "model", "true");
-  Z3_set_param_value(cfg, "timeout", "10000"); // milliseconds
+  Z3_set_param_value(cfg, "timeout", "5000"); // milliseconds
   g_context = Z3_mk_context_rc(cfg);
   Z3_del_config(cfg);
 
@@ -475,19 +475,42 @@ Z3_ast _sym_build_bool_to_bits(Z3_ast expr, uint8_t bits)
 // macro so we don't clog stderr which symcc uses
 // #define dataprintf(format, ...) if(g_data_log!=NULL) fprintf (g_data_log, format __VA_OPT__(,) __VA_ARGS__)
 
+static ConstraintErrorReason find_reason(Z3_string unknown)
+{
+  printf("finding reason: %s\n", unknown);
+  if (strcmp(unknown, "timeout") == 0)
+  {
+    return ConstraintErrorReason::TIMEOUT;
+  }
+  else if (strcmp(unknown, "canceled") == 0)
+  {
+    return ConstraintErrorReason::CANCELED;
+  }
+  else
+  {
+    return ConstraintErrorReason::NONE;
+  }
+}
+
 void _sym_push_path_constraint(Z3_ast constraint, int taken,
                                uintptr_t site_id [[maybe_unused]], int program_run, int constraint_index)
 {
+  printf("pushing a path constraint with program: %d and constraint: %d\n", program_run, constraint_index);
   if (constraint == nullptr)
+  {
+    printf("constraint is null\n");
     return;
+  }
 
-  // dataprintf("Logging AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+  // const char* ast_string = Z3_ast_to_string(g_context, constraint);
 
-  // dataprintf("has id: %ld\n", site_id);
+  // // printf("ast_string: %s\n", ast_string);
+
+  // fprintf(g_log, "Logging AST Constraint:\n%s\n", ast_string);
 
   constraint = Z3_simplify(g_context, constraint);
 
-  // dataprintf(" -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+  fprintf(g_log, " -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
 
   Z3_inc_ref(g_context, constraint);
 
@@ -497,7 +520,7 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
 
   if (Z3_is_eq_ast(g_context, constraint, Z3_mk_true(g_context)))
   {
-    // dataprintf(" -- constraint reduced to true");
+    fprintf(g_log, " -- constraint reduced to true\n");
     assert(taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
@@ -505,7 +528,7 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
 
   if (Z3_is_eq_ast(g_context, constraint, Z3_mk_false(g_context)))
   {
-    // dataprintf(" -- constraint reduced to false");
+    fprintf(g_log, " -- constraint reduced to false\n");
     assert(!taken && "We have taken an impossible branch");
     Z3_dec_ref(g_context, constraint);
     return;
@@ -528,6 +551,7 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   Z3_lbool feasible = Z3_solver_check(g_context, g_solver);
   if (feasible == Z3_L_TRUE)
   {
+    // printf("constraint is z3_l_true\n");
     Z3_model model = Z3_solver_get_model(g_context, g_solver);
     Z3_model_inc_ref(g_context, model);
     fprintf(g_log, "Found diverging input:\n%s\n",
@@ -538,13 +562,17 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   }
   else if (feasible == Z3_L_FALSE)
   {
+    // printf("constraint is z3_l_false\n");
     fprintf(g_log, "Can't find a diverging input at this point\n");
-    PathConstraintDB::instance().push_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, 1);
+    PathConstraintDB::instance().push_instrumented_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, 1);
   }
   else if (feasible == Z3_L_UNDEF)
   {
+    // printf("constraint is z3_l_undef\n");
     fprintf(g_log, "Undef input\n");
-    PathConstraintDB::instance().push_timeout_constraint(Z3_solver_get_reason_unknown(g_context, g_solver), program_run, constraint_index, 1);
+    Z3_string err_msg = Z3_solver_get_reason_unknown(g_context, g_solver);
+    printf("err: %s\n", err_msg);
+    PathConstraintDB::instance().push_instrumented_error_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, find_reason(err_msg), 1);
   }
   fflush(g_log);
   fflush(g_data_log);
@@ -560,17 +588,142 @@ void _sym_push_path_constraint(Z3_ast constraint, int taken,
   int negated = taken ? 0 : 1;
   if (actualConstraintFeasible == Z3_L_TRUE)
   {
+    // printf("constraint is z3_l_true\n");
     // log constraint
   }
   else if (actualConstraintFeasible == Z3_L_FALSE)
   {
-    PathConstraintDB::instance().push_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, negated);
+    // printf("constraint is z3_l_false\n");
+    PathConstraintDB::instance().push_instrumented_unsat_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, negated);
   }
-  else {
-    PathConstraintDB::instance().push_timeout_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, negated);
+  else if (actualConstraintFeasible == Z3_L_UNDEF) {
+    // printf("constraint is z3_l_undef\n");
+    Z3_string err_msg =  Z3_solver_get_reason_unknown(g_context, g_solver);
+    printf("err: %s\n", err_msg);
+    PathConstraintDB::instance().push_instrumented_error_constraint(Z3_solver_to_string(g_context, g_solver), program_run, constraint_index, find_reason(err_msg), negated);
   }
-  assert((actualConstraintFeasible == Z3_L_TRUE) &&
-         "Asserting infeasible path constraint");
+
+  // assert((actualConstraintFeasible == Z3_L_TRUE) &&
+  //        "Asserting infeasible path constraint");
+  Z3_dec_ref(g_context, constraint);
+  Z3_dec_ref(g_context, not_constraint);
+}
+
+void _sym_push_libc_path_constraint(Z3_ast constraint, int taken,
+                               uintptr_t site_id [[maybe_unused]], const char func[])
+{
+  printf("pushing a libc path constraint: %s\n", func);
+  if (constraint == nullptr)
+  {
+    printf("constraint is null\n");
+    return;
+  }
+
+  // const char* ast_string = Z3_ast_to_string(g_context, constraint);
+
+  // // printf("ast_string: %s\n", ast_string);
+
+  // fprintf(g_log, "Logging AST Constraint:\n%s\n", ast_string);
+
+  constraint = Z3_simplify(g_context, constraint);
+
+  // fprintf(g_log, " -- Simplified AST Constraint:\n%s\n", Z3_ast_to_string(g_context, constraint));
+
+  Z3_inc_ref(g_context, constraint);
+
+  /* Check the easy cases first: if simplification reduced the constraint to
+     "true" or "false", there is no point in trying to solve the negation or *
+     pushing the constraint to the solver... */
+
+  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_true(g_context)))
+  {
+    fprintf(g_log, " -- constraint reduced to true\n");
+    assert(taken && "We have taken an impossible branch");
+    Z3_dec_ref(g_context, constraint);
+    return;
+  }
+
+  if (Z3_is_eq_ast(g_context, constraint, Z3_mk_false(g_context)))
+  {
+    fprintf(g_log, " -- constraint reduced to false\n");
+    assert(!taken && "We have taken an impossible branch");
+    Z3_dec_ref(g_context, constraint);
+    return;
+  }
+
+  /* Generate a solution for the alternative */
+  Z3_ast not_constraint =
+      Z3_simplify(g_context, Z3_mk_not(g_context, constraint));
+  // dataprintf("Logging negation of AST Constraint:\n%s\n",
+  //     Z3_ast_to_string(g_context, not_constraint));
+  Z3_inc_ref(g_context, not_constraint);
+
+  Z3_solver_push(g_context, g_solver);
+  Z3_solver_assert(g_context, g_solver, taken ? not_constraint : constraint);
+  fprintf(g_log, "Trying to solve:\n%s\n",
+          Z3_solver_to_string(g_context, g_solver));
+  // dataprintf("Trying to solve:\n%s\n",
+  //         Z3_solver_to_string(g_context, g_solver));
+
+  Z3_lbool feasible = Z3_solver_check(g_context, g_solver);
+  if (feasible == Z3_L_TRUE)
+  {
+    printf("constraint is z3_l_true\n");
+    Z3_model model = Z3_solver_get_model(g_context, g_solver);
+    Z3_model_inc_ref(g_context, model);
+    fprintf(g_log, "Found diverging input:\n%s\n",
+            Z3_model_to_string(g_context, model));
+    // dataprintf("Found diverging input:\n%s\n",
+    //         Z3_model_to_string(g_context, model));
+    Z3_model_dec_ref(g_context, model);
+  }
+  else if (feasible == Z3_L_FALSE)
+  {
+    printf("constraint is z3_l_false\n");
+    fprintf(g_log, "Can't find a diverging input at this point\n");
+    PathConstraintDB::instance().push_libc_unsat_constraint(Z3_solver_to_string(g_context, g_solver), std::string(func), 1);
+  }
+  else if (feasible == Z3_L_UNDEF)
+  {
+    printf("constraint is z3_l_undef\n");
+    fprintf(g_log, "Undef input\n");
+    Z3_string err_msg =  Z3_solver_get_reason_unknown(g_context, g_solver);
+    printf("err: %s\n", err_msg);
+    ConstraintErrorReason r = find_reason(err_msg);
+    PathConstraintDB::instance().push_libc_error_constraint(Z3_solver_to_string(g_context, g_solver), std::string(func), r, 1);
+  }
+  fflush(g_log);
+  fflush(g_data_log);
+
+  Z3_solver_pop(g_context, g_solver, 1);
+
+  /* Assert the actual path constraint */
+  Z3_ast newConstraint = (taken ? constraint : not_constraint);
+  Z3_inc_ref(g_context, newConstraint);
+  Z3_solver_assert(g_context, g_solver, newConstraint);
+
+  Z3_lbool actualConstraintFeasible = Z3_solver_check(g_context, g_solver);
+  int negated = taken ? 0 : 1;
+  if (actualConstraintFeasible == Z3_L_TRUE)
+  {
+    printf("constraint is z3_l_true\n");
+    // log constraint
+  }
+  else if (actualConstraintFeasible == Z3_L_FALSE)
+  {
+    printf("constraint is z3_l_false\n");
+    PathConstraintDB::instance().push_libc_unsat_constraint(Z3_solver_to_string(g_context, g_solver), std::string(func), negated);
+  }
+  else if (actualConstraintFeasible == Z3_L_UNDEF) {
+    printf("constraint is z3_l_undef\n");
+    Z3_string err_msg =  Z3_solver_get_reason_unknown(g_context, g_solver);
+    printf("err: %s\n", err_msg);
+    ConstraintErrorReason r = find_reason(err_msg);
+    PathConstraintDB::instance().push_libc_error_constraint(Z3_solver_to_string(g_context, g_solver), std::string(func), r, negated);
+  }
+
+  // assert((actualConstraintFeasible == Z3_L_TRUE) &&
+  //        "Asserting infeasible path constraint");
   Z3_dec_ref(g_context, constraint);
   Z3_dec_ref(g_context, not_constraint);
 }
